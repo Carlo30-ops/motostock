@@ -398,8 +398,9 @@ async def request_recovery_code(
         recovery_code = user.generate_recovery_code()
         db.commit()
         
-        # Envío por email pendiente (SMTP en settings); no exponer el código en la API.
-        # send_recovery_email(user.email, recovery_code)
+        # Envío por email
+        from app.services.notifications import send_recovery_email
+        email_sent = send_recovery_email(user.email, recovery_code)
         
         # Log de auditoría
         audit_log = AuditLog.log_2fa_event(
@@ -408,15 +409,22 @@ async def request_recovery_code(
             success=True,
             ip_address=http_request.client.host if http_request.client else None,
             user_agent=http_request.headers.get("user-agent"),
-            event_data={"email": payload.email},
+            event_data={"email": payload.email, "email_sent": email_sent},
         )
         db.add(audit_log)
         db.commit()
 
+        if email_sent:
+            message = "Se ha enviado un código de recuperación a tu correo electrónico."
+            delivery = "sent"
+        else:
+            message = "Solicitud registrada. El envío por email falló o no está configurado: contacta al administrador."
+            delivery = "failed_or_disabled"
+
         return {
             "success": True,
-            "message": "Solicitud registrada. El envío por email no está configurado: contacta al administrador o usa otro canal de recuperación si existe.",
-            "email_delivery": "disabled",
+            "message": message,
+            "email_delivery": delivery,
         }
 
     except HTTPException:

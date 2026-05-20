@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
+    SENTRY_DSN: str = ""
 
     DIAN_ENV: str = "habilitacion"
     DIAN_PROVIDER: str = "siigo"

@@ -62,6 +62,7 @@ services:
       TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: production
+      SENTRY_DSN: ${SENTRY_DSN}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
@@ -107,6 +108,7 @@ services:
       - backend
     environment:
       VITE_API_URL: ${VITE_API_URL}
+      VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
     networks:
       - motostock_network
     healthcheck:

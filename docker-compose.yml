@@ -69,6 +69,7 @@ services:
       TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-production}
+      SENTRY_DSN: ${SENTRY_DSN}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
     ports:
@@ -97,6 +98,7 @@ services:
         condition: service_healthy
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
       VITE_APP_NAME: ${VITE_APP_NAME:-MotoStock}
       VITE_APP_VERSION: ${VITE_APP_VERSION:-1.0.0}
     ports:

@@ -77,7 +77,9 @@
     "zod": "^3.22.4",
     "xlsx": "^0.18.5",
     "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2"
+    "jspdf-autotable": "^3.8.2",
+    "qrcode.react": "^3.1.0",
+    "@sentry/react": "^7.114.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

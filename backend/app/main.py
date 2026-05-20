@@ -12,6 +12,21 @@ from app.logging_config import setup_logging, request_logger
 from app.middleware.rate_limiter import limiter, _rate_limit_exceeded_handler, RateLimitExceeded
 from app.exceptions.handlers import setup_exception_handlers
 
+# Inicializar Sentry
+if settings.SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastAPIIntegration
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            integrations=[FastAPIIntegration()],
+            traces_sample_rate=1.0,
+            environment=settings.ENVIRONMENT,
+        )
+    except Exception as exc:
+        print(f"[Sentry Init Error] Failed to initialize Sentry: {exc}")
+
+
 
 # Middleware para logging de requests
 class LoggingMiddleware(BaseHTTPMiddleware):

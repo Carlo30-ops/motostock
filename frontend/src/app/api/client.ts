@@ -181,4 +181,11 @@ export const api = {
   // Offline Sync
   syncBatch: (data: SyncBatchPayload) => apiClient.post("/sync/", data).then((res) => res.data),
   getCurrentUser: () => apiClient.get<CurrentUser>("/auth/users/me").then((res) => res.data),
+
+  // 2FA Endpoints
+  get2FAStatus: () => apiClient.get<{ success: boolean; data: { enabled: boolean; backup_codes_remaining: number; last_used?: string } }>("/2fa/status").then((res) => res.data),
+  enable2FA: (password: string) => apiClient.post<{ success: boolean; data: { qr_code: string; backup_codes: string[]; instructions: string } }>("/2fa/enable", { password }).then((res) => res.data),
+  verify2FA: (token: string) => apiClient.post<{ success: boolean; message: string }>("/2fa/verify", { token }).then((res) => res.data),
+  disable2FA: () => apiClient.post<{ success: boolean; message: string }>("/2fa/disable").then((res) => res.data),
+  regenerateBackupCodes: () => apiClient.post<{ success: boolean; data: { backup_codes: string[] } }>("/2fa/regenerate-backup-codes").then((res) => res.data),
 };

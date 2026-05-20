@@ -1,0 +1,159 @@
+# ==========================================
+# 📊 PROMETHEUS CONFIGURATION
+# ==========================================
+# Configuración de Prometheus para monitoreo de MotoStock
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'motostack-monitor'
+    service: 'motostock'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# ==========================================
+# 🎯 SCRAPE CONFIGURATIONS
+# ==========================================
+scrape_configs:
+  # Prometheus self monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # MotoStock Backend Metrics
+  - job_name: 'motostock-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'backend'
+
+  # MotoStock Frontend Metrics (if available)
+  - job_name: 'motostock-frontend'
+    static_configs:
+      - targets: ['frontend:80']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 5s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'frontend'
+
+  # PostgreSQL Database Metrics
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'database'
+
+  # Redis Metrics
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'redis'
+
+  # Nginx Metrics
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'nginx'
+
+  # Node Exporter (System Metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'system'
+
+  # Docker Container Metrics
+  - job_name: 'docker-exporter'
+    static_configs:
+      - targets: ['docker-exporter:9323']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'docker'
+
+# ==========================================
+# 📈 STORAGE CONFIGURATION
+# ==========================================
+remote_write:
+  - url: "http://longterm-storage:9090/api/v1/write"
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500
+
+# ==========================================
+# 🔍 RECORDING RULES
+# ==========================================
+recording_rules:
+  - name: motostock.rules
+    rules:
+      # API Response Time
+      - record: motostock:http_request_duration_seconds:rate5m
+        expr: rate(http_request_duration_seconds_sum[5m])
+      
+      # API Request Rate
+      - record: motostock:http_requests:rate5m
+        expr: rate(http_requests_total[5m])
+      
+      # Error Rate
+      - record: motostock:http_requests_error_rate:rate5m
+        expr: rate(http_requests_total{status=~"5.."}[5m])
+      
+      # Database Connections
+      - record: motostock:pg_connections:current
+        expr: pg_stat_database_numbackends
+      
+      # Database Size
+      - record: motostock:pg_database_size_bytes
+        expr: pg_database_size_bytes
+        
+      # Redis Memory Usage
+      - record: motostock:redis_memory_usage_bytes
+        expr: redis_memory_used_bytes
+        
+      # CPU Usage
+      - record: motostock:cpu_usage_percent
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+        
+      # Memory Usage
+      - record: motostock:memory_usage_percent
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+        
+      # Disk Usage
+      - record: motostock:disk_usage_percent
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100

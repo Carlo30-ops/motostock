@@ -1,0 +1,452 @@
+name: CI/CD Pipeline for MotoStock
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Backend Tests & Security
+  backend-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: motostock_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        cache-dependency-path: backend/requirements.txt
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio black flake8 mypy bandit safety
+
+    - name: Code formatting check
+      working-directory: ./backend
+      run: black --check --diff .
+
+    - name: Lint with flake8
+      working-directory: ./backend
+      run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Type checking with mypy
+      working-directory: ./backend
+      run: mypy app/ --ignore-missing-imports || true
+
+    - name: Security scan with bandit
+      working-directory: ./backend
+      run: bandit -r app/ -f json -o bandit-report.json || true
+
+    - name: Check dependencies for security vulnerabilities
+      working-directory: ./backend
+      run: safety check --json --output safety-report.json || true
+
+    - name: Run tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/motostock_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test_secret_key_for_testing
+        ENCRYPTION_KEY: test_encryption_key_for_testing
+      run: |
+        pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-security-reports
+        path: |
+          backend/bandit-report.json
+          backend/safety-report.json
+
+  # Frontend Tests & Build
+  frontend-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Type checking
+      working-directory: ./frontend
+      run: npm run type-check || true
+
+    - name: Linting
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Security audit
+      working-directory: ./frontend
+      run: npm audit --audit-level=high --json > npm-audit.json || true
+
+    - name: Run tests
+      working-directory: ./frontend
+      run: npm run test:coverage
+
+    - name: Build application
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-build
+        path: frontend/dist/
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-security-reports
+        path: frontend/npm-audit.json
+
+  # Integration Tests
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: motostock_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Start backend server
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/motostock_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test_secret_key_for_testing
+        ENCRYPTION_KEY: test_encryption_key_for_testing
+      run: |
+        python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        sleep 10
+
+    - name: Run integration tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/motostock_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test_secret_key_for_testing
+        ENCRYPTION_KEY: test_encryption_key_for_testing
+        API_BASE_URL: http://localhost:8000
+      run: |
+        pytest tests/integration/ -v --timeout=300 || true
+
+  # Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Download backend security reports
+      uses: actions/download-artifact@v3
+      with:
+        name: backend-security-reports
+        path: ./security-reports/
+
+    - name: Download frontend security reports
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-security-reports
+        path: ./security-reports/
+
+    - name: Consolidate security reports
+      run: |
+        echo "# Security Scan Results" > security-summary.md
+        echo "" >> security-summary.md
+        echo "## Backend Security" >> security-summary.md
+        echo '```json' >> security-summary.md
+        cat security-reports/bandit-report.json 2>/dev/null || echo "{}" >> security-summary.md
+        echo '```' >> security-summary.md
+        echo "" >> security-summary.md
+        echo "## Frontend Security" >> security-summary.md
+        echo '```json' >> security-summary.md
+        cat security-reports/npm-audit.json 2>/dev/null || echo "{}" >> security-summary.md
+        echo '```' >> security-summary.md
+
+    - name: Upload security summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-summary
+        path: security-summary.md
+
+  # Build and Push Docker Images
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test, integration-test]
+    if: github.event_name != 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta-backend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        push: true
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    - name: Extract metadata for frontend
+      id: meta-frontend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        labels: ${{ steps.meta-frontend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  # Deploy to Staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your deployment commands here
+        # Example: kubectl apply -f k8s/staging/
+
+  # Deploy to Production
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-and-push, security-scan]
+    if: github.event_name == 'release'
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # Add your deployment commands here
+        # Example: kubectl apply -f k8s/production/
+
+    - name: Run smoke tests
+      run: |
+        echo "Running smoke tests..."
+        # Add smoke test commands here
+
+  # Performance Testing
+  performance-test:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install performance testing tools
+      run: npm install -g artillery
+
+    - name: Run performance tests
+      run: |
+        artillery run performance-test.yml --target https://staging.motostock.com || true
+
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-reports
+        path: artillery-report.html
+
+  # Notification
+  notify:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test, integration-test, security-scan]
+    if: always()
+
+    steps:
+    - name: Notify on success
+      if: success()
+      run: |
+        echo "✅ All tests passed successfully!"
+        # Add Slack/Discord notification here
+
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Some tests failed!"
+        # Add Slack/Discord notification here

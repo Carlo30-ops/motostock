@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration>
+    <description>
+        Configuración de OWASP ZAP para pentesting automatizado de MotoStock
+    </description>
+    
+    <name>
+        MotoStock Security Scan
+    </name>
+    
+    <target>
+        <target>http://localhost:8000</target>
+        <target>http://localhost:5173</target>
+        <context>
+            <name>Default Context</name>
+            <includeInSessionScope>true</includeInSessionScope>
+            <excludeFromSessionScope>false</excludeFromSessionScope>
+        </context>
+    </target>
+    
+    <params>
+        <!-- Configuración de escaneo -->
+        <param name="depth" value="10"/>
+        <param name="maxChildren" value="10"/>
+        <param name="maxParseSize" value="10485760"/>
+        <param name="maxCrawlDepth" value="10"/>
+        <param name="delayInMs" value="100"/>
+        <param name="timeoutInSecs" value="60"/>
+        <param name="threadCount" value="5"/>
+        
+        <!-- Configuración de autenticación -->
+        <param name="authLoginUrl" value="http://localhost:8000/api/auth/token"/>
+        <param name="authUsername" value="admin"/>
+        <param name="authPassword" value="admin123"/>
+        
+        <!-- Configuración de navegador -->
+        <param name="userAgent" value="MotoStock-Pentest-Scanner/1.0"/>
+        <param name="javaEnabled" value="false"/>
+        <param name="acceptSelfSignedCerts" value="true"/>
+        
+        <!-- Configuración de proxy (si aplica) -->
+        <!--
+        <param name="httpProxyHost" value=""/>
+        <param name="httpProxyPort" value=""/>
+        <param name="httpProxyUser" value=""/>
+        <param name="httpProxyPass" value=""/>
+        -->
+    </params>
+    
+    <modifier>
+        <!-- Modificadores para tipos específicos de escaneo -->
+        <type name="authentication"/>
+        <type name="bruteForce"/>
+        <type name="csrf"/>
+        <type name="directoryListing"/>
+        <type name="dynamicContent"/>
+        <type name="fileUpload"/>
+        <type name="injection"/>
+        <type name="session"/>
+        <type name="xss"/>
+        <type name="webSocket"/>
+    </modifier>
+    
+    <parser>
+        <!-- Configuración de parser -->
+        <type>HTMLParser</type>
+        <type>JSONParser</type>
+        <type>XMLParser</type>
+        <type>JavaScriptParser</type>
+    </parser>
+    
+    <sessionManagement>
+        <!-- Configuración de sesión -->
+        <sessionTimeout>60</sessionTimeout>
+        <reconnectAuth>true</reconnectAuth>
+        <addUserDefinedHeaders>true</addUserDefinedHeaders>
+    </sessionManagement>
+    
+    <users>
+        <!-- Usuarios para escaneo autenticado -->
+        <user name="pentest_user" password="pentest_pass"/>
+    </users>
+    
+    <scanner>
+        <!-- Configuración del scanner -->
+        <strength>LOW</strength> <!-- LOW, MEDIUM, HIGH, INSANE -->
+        <hostPerScan>1</hostPerScan>
+        <maxScanDurationInMins>60</maxScanDurationInMins>
+        <alertThreshold>5</alertThreshold>
+        <showOnlyWarnings>false</showOnlyWarnings>
+        <promptInDocker>false</promptInDocker>
+    </scanner>
+    
+    <spider>
+        <!-- Configuración del spider -->
+        <maxDepth>10</maxDepth>
+        <maxChildren>100</maxChildren>
+        <acceptCookies>true</acceptCookies>
+        <handleODataParametersVisited>true</handleODataParametersVisited>
+        <generateAntiCSRFToken>true</generateAntiCSRFToken>
+        <domain>localhost</domain>
+        <maxDuration>60</maxDuration>
+        <maxParseSize>1048576</maxParseSize>
+    </spider>
+    
+    <ascan>
+        <!-- Configuración de Active Scan -->
+        <target>
+            <target>http://localhost:8000</target>
+            <target>http://localhost:5173</target>
+        </target>
+        <policy>
+            <policy>Default</policy>
+            <policy>Directory Traversal</policy>
+            <policy>Remote File Inclusion</policy>
+            <policy>SQL Injection</policy>
+            <policy>Cross Site Scripting</policy>
+            <policy>CSRF</policy>
+            <policy>Session Fixation</policy>
+            <policy>Authentication Bypass</policy>
+            <policy>Information Disclosure</policy>
+            <policy>Business Logic</policy>
+        </policy>
+        <attack>
+            <attack>
+                <method>GET</method>
+                <attack>
+                    <payload>&apos; OR &apos;1&apos;=&apos;1&apos;</payload>
+                    <payload>1&apos; UNION SELECT NULL--</payload>
+                    <payload>&lt;script&gt;alert(1)&lt;/script&gt;</payload>
+                    <payload>../../../etc/passwd</payload>
+                    <payload>..%2f..%2f..%2f..%2fetc%2fpasswd</payload>
+                </attack>
+            </attack>
+            <attack>
+                <method>POST</method>
+                <attack>
+                    <payload>&quot; OR &quot;1&quot;=&quot;1&quot;;</payload>
+                    <payload>1&apos; UNION SELECT NULL--</payload>
+                    <payload>&lt;script&gt;alert(1)&lt;/script&gt;</payload>
+                    <payload>{"test": "&lt;script&gt;alert(1)&lt;/script&gt;"}</payload>
+                </attack>
+            </attack>
+        </attack>
+        <technology>
+            <technology name="Java"/>
+            <technology name="PHP"/>
+            <technology name="Python"/>
+            <technology name="Node.js"/>
+            <technology name="React"/>
+            <technology name="FastAPI"/>
+        </technology>
+    </ascan>
+    
+    <alerts>
+        <!-- Configuración de alertas -->
+        <alert level="LOW" threshold="3"/>
+        <alert level="MEDIUM" threshold="5"/>
+        <alert level="HIGH" threshold="10"/>
+    </alerts>
+    
+    <report>
+        <!-- Configuración de reportes -->
+        <template>traditional-html</template>
+        <template>traditional-html-plus</template>
+        <template>traditional-xml</template>
+        <template>json</template>
+        <template>markdown</template>
+        
+        <includeAlerts>true</includeAlerts>
+        <includeMessages>true</includeMessages>
+        <includeEvidence>true</includeEvidence>
+        <includeInstances>true</includeInstances>
+        <includeParams>true</includeParams>
+        <includeTechnologies>true</includeTechnologies>
+        <includeRiskCode>true</includeRiskCode>
+        
+        <outputFile>motostock_pentest_report</outputFile>
+        <outputDirectory>reports</outputDirectory>
+        <reportTitle>MotoStock Pentest Report</reportTitle>
+        <reportDescription>Reporte de pruebas de penetración automatizadas para MotoStock</reportDescription>
+        <reportAuthor>Security Team</reportAuthor>
+    </report>
+    
+    <api>
+        <!-- Configuración de API -->
+        <enabled>true</enabled>
+        <key>pentest_api_key</key>
+        <address>localhost</address>
+        <port>8080</port>
+    </api>
+    
+    <database>
+        <!-- Configuración de base de datos -->
+        <driver>org.h2.Driver</driver>
+        <connectionString>jdbc:h2:file:./zapdb;USER=sa;PASSWORD=</connectionString>
+        <connectionPoolSize>10</connectionPoolSize>
+        <maxResults>10000</maxResults>
+    </database>
+    
+    <ext>
+        <!-- Extensiones adicionales -->
+        <extension name="ascanrulesAlpha"/>
+        <extension name="pscanrulesAlpha"/>
+        <extension name="bruteforce"/>
+        <extension name="selenium"/>
+        <extension name="wappalyzer"/>
+    </ext>
+    
+    <context>
+        <!-- Contextos adicionales -->
+        <context>
+            <name>API Context</name>
+            <includeInSessionScope>true</includeInSessionScope>
+            <urlPattern>http://localhost:8000/api/.*</urlPattern>
+        </context>
+        <context>
+            <name>Frontend Context</name>
+            <includeInSessionScope>true</includeInSessionScope>
+            <urlPattern>http://localhost:5173/.*</urlPattern>
+        </context>
+    </context>
+</configuration>

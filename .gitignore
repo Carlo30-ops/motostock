@@ -1,0 +1,52 @@
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environments
+.env
+.env.production
+.env.local
+.env.development
+.env.test
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.log
+backend/backups/
+backend/logs/
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.npm/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS Generated
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Secrets / Config
+*.pem
+*.key
+*.cert

@@ -1,0 +1,152 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: motostock_db_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-motostock_prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-motostock_prod}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - motostock_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-motostock_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No exporar puerto en producción (acceso solo a través de red interna)
+
+  redis:
+    image: redis:7-alpine
+    container_name: motostock_redis_prod
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    networks:
+      - motostock_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: motostock_backend_prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-motostock_prod}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-motostock_prod}
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-motostock_prod}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-12}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_EMAIL: ${BACKUP_EMAIL}
+      REPORT_EMAIL: ${REPORT_EMAIL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      DIAN_ENV: ${DIAN_ENV:-production}
+      DIAN_PROVIDER: ${DIAN_PROVIDER:-siigo}
+      DIAN_CERT_PATH: ${DIAN_CERT_PATH}
+      DIAN_CERT_PASSWORD: ${DIAN_CERT_PASSWORD}
+      DIAN_NIT: ${DIAN_NIT}
+      DIAN_RESOLUTION: ${DIAN_RESOLUTION}
+      DIAN_INVOICE_PREFIX: ${DIAN_INVOICE_PREFIX}
+      SIIGO_API_BASE_URL: ${SIIGO_API_BASE_URL}
+      SIIGO_API_TOKEN: ${SIIGO_API_TOKEN}
+    volumes:
+      - ./certs:/app/certs:ro
+      - ./logs:/app/logs
+      - ./backups:/backups
+    networks:
+      - motostock_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: motostock_frontend_prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+    networks:
+      - motostock_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  nginx:
+    image: nginx:alpine
+    container_name: motostock_nginx_prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - motostock_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  pgdata_prod:
+    driver: local
+  redisdata:
+    driver: local
+
+networks:
+  motostock_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

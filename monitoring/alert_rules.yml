@@ -1,0 +1,262 @@
+# ==========================================
+# 🚨 PROMETHEUS ALERT RULES
+# ==========================================
+# Reglas de alerta para monitoreo de MotoStock
+
+groups:
+  - name: motostock.rules
+    rules:
+      # ==========================================
+      # 🚨 CRITICAL ALERTS
+      # ==========================================
+      
+      # Service Down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: 'motostock'
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "Service {{ $labels.instance }} has been down for more than 1 minute."
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: motostock:http_requests_error_rate:rate5m > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: 'motostock-api'
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second (>5%)."
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionIssues
+        expr: motostock:pg_connections:current > 80
+        for: 5m
+        labels:
+          severity: critical
+          service: 'database'
+        annotations:
+          summary: "Too many database connections"
+          description: "Database has {{ $value }} active connections (>80)."
+
+      # Disk Space Critical
+      - alert: DiskSpaceCritical
+        expr: motostock:disk_usage_percent > 90
+        for: 5m
+        labels:
+          severity: critical
+          service: 'system'
+        annotations:
+          summary: "Critical disk usage"
+          description: "Disk usage is {{ $value }}% (>90%)."
+
+      # Memory Critical
+      - alert: MemoryCritical
+        expr: motostock:memory_usage_percent > 90
+        for: 5m
+        labels:
+          severity: critical
+          service: 'system'
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage is {{ $value }}% (>90%)."
+
+      # ==========================================
+      # ⚠️ WARNING ALERTS
+      # ==========================================
+      
+      # High Response Time
+      - alert: HighResponseTime
+        expr: motostock:http_request_duration_seconds:rate5m > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: 'motostock-api'
+        annotations:
+          summary: "High API response time"
+          description: "API response time is {{ $value }} seconds (>2s)."
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: motostock:cpu_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: 'system'
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% (>80%)."
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: motostock:memory_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: 'system'
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% (>80%)."
+
+      # Disk Space Warning
+      - alert: DiskSpaceWarning
+        expr: motostock:disk_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: 'system'
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value }}% (>80%)."
+
+      # Database Size Growing
+      - alert: DatabaseSizeGrowing
+        expr: increase(motostock:pg_database_size_bytes[1h]) > 1073741824  # 1GB
+        for: 30m
+        labels:
+          severity: warning
+          service: 'database'
+        annotations:
+          summary: "Database size growing rapidly"
+          description: "Database has grown by more than 1GB in the last hour."
+
+      # Redis Memory High
+      - alert: RedisMemoryHigh
+        expr: motostock:redis_memory_usage_bytes > 1073741824  # 1GB
+        for: 10m
+        labels:
+          severity: warning
+          service: 'redis'
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis is using {{ $value }} bytes of memory (>1GB)."
+
+      # ==========================================
+      # ℹ️ INFO ALERTS
+      # ==========================================
+      
+      # Low API Traffic
+      - alert: LowAPITraffic
+        expr: motostock:http_requests:rate5m < 0.1
+        for: 15m
+        labels:
+          severity: info
+          service: 'motostock-api'
+        annotations:
+          summary: "Low API traffic"
+          description: "API request rate is {{ $value }} requests per second (<0.1 rps)."
+
+      # SSL Certificate Expiring
+      - alert: SSLCertificateExpiring
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7  # 7 days
+        for: 1h
+        labels:
+          severity: warning
+          service: 'ssl'
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in 7 days."
+
+  - name: motostock.business.rules
+    rules:
+      # ==========================================
+      # 💼 BUSINESS ALERTS
+      # ==========================================
+      
+      # No Sales in Last Hour
+      - alert: NoSalesInLastHour
+        expr: increase(motostock:sales_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: 'business'
+        annotations:
+          summary: "No sales in the last hour"
+          description: "No sales have been recorded in the last hour."
+
+      # Low Stock Alert
+      - alert: LowStockAlert
+        expr: motostock:low_stock_products > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: 'inventory'
+        annotations:
+          summary: "Low stock detected"
+          description: "{{ $value }} products have low stock levels."
+
+      # Failed Payments
+      - alert: FailedPayments
+        expr: increase(motostock:failed_payments_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: 'payments'
+        annotations:
+          summary: "Failed payments detected"
+          description: "{{ $value }} failed payments in the last 5 minutes."
+
+      # High Failed Login Attempts
+      - alert: HighFailedLogins
+        expr: increase(motostock:failed_login_attempts_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: 'security'
+        annotations:
+          summary: "High failed login attempts"
+          description: "{{ $value }} failed login attempts in the last 5 minutes."
+
+  - name: motostock.security.rules
+    rules:
+      # ==========================================
+      # 🔒 SECURITY ALERTS
+      # ==========================================
+      
+      # Suspicious Activity
+      - alert: SuspiciousActivity
+        expr: increase(motostock:suspicious_requests_total[1m]) > 10
+        for: 1m
+        labels:
+          severity: critical
+          service: 'security'
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "{{ $value }} suspicious requests in the last minute."
+
+      # Rate Limit Exceeded
+      - alert: RateLimitExceeded
+        expr: increase(motostock:rate_limit_hits_total[1m]) > 50
+        for: 30s
+        labels:
+          severity: warning
+          service: 'security'
+        annotations:
+          summary: "Rate limiting active"
+          description: "{{ $value }} rate limit hits in the last minute."
+
+      # Unauthorized API Access
+      - alert: UnauthorizedAPIAccess
+        expr: increase(motostock:unauthorized_requests_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: 'security'
+        annotations:
+          summary: "Unauthorized API access attempts"
+          description: "{{ $value }} unauthorized requests in the last 5 minutes."
+
+      # Brute Force Attack
+      - alert: BruteForceAttack
+        expr: increase(motostock:failed_login_attempts_total[1m]) > 20
+        for: 30s
+        labels:
+          severity: critical
+          service: 'security'
+        annotations:
+          summary: "Possible brute force attack"
+          description: "{{ $value }} failed login attempts in the last minute (possible brute force)."

@@ -1,0 +1,75 @@
+### MotoStock - Flujo DIAN/Siigo (REST Client)
+### Uso:
+### 1) Ajusta variables
+### 2) Ejecuta en orden las requests
+### 3) Copia el invoice_id devuelto para status/pdf
+
+@baseUrl = http://localhost:8000/api
+@token = REEMPLAZA_CON_BEARER_TOKEN
+@invoiceId = 1
+
+### 0) Login (opcional, para obtener token)
+POST {{baseUrl}}/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=admin&password=admin
+
+### 1) Configurar empresa + proveedor Siigo
+PUT {{baseUrl}}/invoices/company-config
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nit": "900123456-7",
+  "company_name": "MotoStock SAS",
+  "address": "Calle 123 #45-67, Bogota",
+  "dian_resolution": "18760000001",
+  "resolution_number": "18760000001",
+  "invoice_prefix": "FV",
+  "cert_path": "./certs/cert.p12",
+  "cert_password": "REEMPLAZA_CERT_PASS",
+  "provider": "siigo"
+}
+
+### 2) Consultar configuración actual
+GET {{baseUrl}}/invoices/company-config
+Authorization: Bearer {{token}}
+
+### 3) Crear y enviar factura (Siigo)
+POST {{baseUrl}}/invoices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "sale_id": 1,
+  "customer_document": "1010101010",
+  "customer_name": "John Martinez",
+  "customer_email": "john@example.com",
+  "issue_date": "2026-05-08",
+  "notes": "Factura emitida desde MotoStock",
+  "lines": [
+    {
+      "product_code": "MOT7100",
+      "description": "Motul 7100 10W-40 Engine Oil",
+      "quantity": 1,
+      "unit_price": 42990,
+      "tax_rate": 19
+    },
+    {
+      "product_code": "NGK-IR",
+      "description": "NGK Iridium Spark Plug",
+      "quantity": 2,
+      "unit_price": 12990,
+      "tax_rate": 19
+    }
+  ]
+}
+
+### 4) Consultar estado DIAN/proveedor por ID local
+GET {{baseUrl}}/invoices/{{invoiceId}}/status
+Authorization: Bearer {{token}}
+
+### 5) Descargar PDF de factura
+GET {{baseUrl}}/invoices/{{invoiceId}}/pdf
+Authorization: Bearer {{token}}
+

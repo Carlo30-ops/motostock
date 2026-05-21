@@ -5,12 +5,17 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Badge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
-import { store, Product, Client, Combo } from "../lib/store";
+import { store, Product, Client } from "../lib/store";
 import { formatCurrency } from "../lib/utils";
 import { useLanguage } from "../lib/i18n";
 import { useBarcodeScanner } from "../lib/useBarcodeScanner";
 import type { Sale } from "../lib/store";
+import { useProducts, useClients, useCreateSale } from "../api/hooks";
 import { toast } from "sonner";
+import axios from "axios";
+import { NumericKeypad } from "../components/ui/NumericKeypad";
+import { playSaleSuccessSound } from "../lib/feedback";
+import { cn } from "../lib/utils";
 
 interface CartItem {
   product: Product;
@@ -36,8 +41,23 @@ interface AuthMeResponse {
   role: string;
 }
 
+function apiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data;
+    if (typeof detail === "object" && detail !== null && "detail" in detail) {
+      return String((detail as { detail: unknown }).detail);
+    }
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Error desconocido";
+}
+
 export function Sales() {
   const { t, language } = useLanguage();
+  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: clients = [] } = useClients();
+  const createSale = useCreateSale();
   const [cart, setCart] = useState<CartItem[]>([]);
   const tabletMode = store((state) => state.tabletMode);
   const setTabletMode = store((state) => state.setTabletMode);
@@ -79,7 +99,7 @@ export function Sales() {
 
   // Handle barcode scanner
   useBarcodeScanner((barcode) => {
-    const product = store.products.find(p => p.barcode === barcode || p.code === barcode);
+    const product = products.find(p => p.barcode === barcode || p.code === barcode);
     if (product) {
       setSearchStatus("success");
       addToCart(product);
@@ -103,8 +123,8 @@ export function Sales() {
       reorderThreshold: 0,
       code: c.id
     } as Product));
-    return [...store.products, ...combosAsProducts];
-  }, [store.products, store.combos]);
+    return [...products, ...combosAsProducts];
+  }, [products, store.combos]);
 
   const filteredProducts = useMemo(() => {
     if (searchTerm.length < 3) return [];
@@ -117,12 +137,12 @@ export function Sales() {
 
   const filteredClients = useMemo(() => {
     if (clientSearch.length < 2) return [];
-    return store.clients.filter(
+    return clients.filter(
       (c) =>
         c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
         c.phone.includes(clientSearch)
     );
-  }, [clientSearch, store.clients]);
+  }, [clientSearch, clients]);
 
   const addToCart = (product: Product) => {
     setCart((prev) => {
@@ -170,9 +190,35 @@ export function Sales() {
   const isCashInsufficient = paymentMethod === "cash" && numericReceived < total && numericReceived > 0;
   const vuelto = paymentMethod === "cash" && numericReceived >= total ? numericReceived - total : 0;
 
-  // Complete sale
+  const finishSaleUi = (saleId: string) => {
+    setLastSaleReceipt({
+      saleId,
+      date: new Date(),
+      client: selectedClient,
+      items: [...cart],
+      subtotal,
+      discountAmount,
+      ivaAmount,
+      total,
+      paymentMethod,
+      received: numericReceived,
+      vuelto,
+    });
+    setCart([]);
+    setDiscountPercent(0);
+    setPaymentMethod("cash");
+    setCashReceived("");
+    setSelectedClient(null);
+    setShowReceipt(true);
+  };
+
+  // Complete sale (API)
   const completeSale = () => {
     if (cart.length === 0) return;
+    if (cart.some((item) => item.isCombo)) {
+      toast.error("Los combos aún no están disponibles en la API.");
+      return;
+    }
 
     if (paymentMethod === "credit" && !selectedClient) {
       toast.error("Selecciona un cliente para dar crédito.");
@@ -188,42 +234,31 @@ export function Sales() {
     }
 
     const sale: Omit<Sale, "id"> = {
-      date: new Date().toISOString(),
-      items: cart.map((item) => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        price: item.product.salePrice,
-      })),
+      date: new Date().toISOString().slice(0, 10),
+      items: cart.map((item) => {
+        const volumeDiscount = item.quantity >= 5 ? 0.9 : 1;
+        return {
+          productId: item.product.id,
+          quantity: item.quantity,
+          price: item.product.salePrice * volumeDiscount,
+        };
+      }),
       total,
       paymentMethod,
-      clientId: selectedClient?.id,
+      ...(selectedClient ? { clientId: selectedClient.id } : {}),
     };
 
-    // Store in backend (mock via local store for now)
-    store.addSale(sale);
-
-    // Prepare receipt
-    setLastSaleReceipt({
-      saleId: Math.random().toString(36).substr(2, 9).toUpperCase(),
-      date: new Date(),
-      client: selectedClient,
-      items: [...cart],
-      subtotal,
-      discountAmount,
-      ivaAmount,
-      total,
-      paymentMethod,
-      received: numericReceived,
-      vuelto
-    });
-
-    // Clean UI
-    setCart([]);
-    setDiscountPercent(0);
-    setPaymentMethod("cash");
-    setCashReceived("");
-    setSelectedClient(null);
-    setShowReceipt(true);
+    createSale.mutate(
+      { data: sale, discountPct: discountPercent },
+      {
+        onSuccess: (created) => {
+          toast.success("Venta registrada");
+          playSaleSuccessSound();
+          finishSaleUi(created.id);
+        },
+        onError: (error) => toast.error(apiErrorMessage(error)),
+      }
+    );
   };
 
   // Check oil
@@ -288,14 +323,14 @@ export function Sales() {
       const cat = item.product.category.toLowerCase();
       if (cat.includes("oil") || cat.includes("aceite")) {
         // Suggest Filters
-        store.products.forEach(p => {
+        products.forEach(p => {
           if ((p.category.toLowerCase().includes("filter") || p.category.toLowerCase().includes("filtro")) && !inCartIds.has(p.id)) {
             suggestions.push(p);
           }
         });
       } else if (cat.includes("tire") || cat.includes("llanta")) {
         // Suggest Brakes or Chains
-        store.products.forEach(p => {
+        products.forEach(p => {
           if ((p.category.toLowerCase().includes("brake") || p.category.toLowerCase().includes("freno")) && !inCartIds.has(p.id)) {
             suggestions.push(p);
           }
@@ -305,7 +340,7 @@ export function Sales() {
     // Return max 3 unique suggestions
     const unique = Array.from(new Set(suggestions));
     return unique.slice(0, 3);
-  }, [cart, store.products]);
+  }, [cart, products]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto h-[calc(100vh-80px)] md:h-auto overflow-y-auto">
@@ -622,29 +657,34 @@ export function Sales() {
                 </div>
 
                 {paymentMethod === "cash" && (
-                  <div className="pt-2 animate-in slide-in-from-top-1">
+                  <div className="pt-2 space-y-3 animate-in slide-in-from-top-1">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex-1">
                         <label className="text-xs text-muted-foreground">Recibido</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
-                          <Input 
-                            type="number" 
-                            className="pl-7 font-bold text-lg h-12"
-                            value={cashReceived}
-                            onChange={(e) => setCashReceived(e.target.value ? Number(e.target.value) : "")}
-                          />
+                        <div className="font-bold text-lg h-12 flex items-center px-3 border border-border rounded-lg bg-muted/30">
+                          {cashReceived === "" ? "—" : formatCurrency(Number(cashReceived))}
                         </div>
                       </div>
                       <div className="flex-1 text-right">
                         <label className="text-xs text-muted-foreground">Vuelto</label>
-                        <div className={`font-black text-2xl ${vuelto > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                        <div
+                          className={cn(
+                            "font-black text-2xl",
+                            vuelto > 0 ? "text-success" : "text-muted-foreground"
+                          )}
+                        >
                           {formatCurrency(vuelto)}
                         </div>
                       </div>
                     </div>
+                    <NumericKeypad
+                      value={cashReceived === "" ? "" : String(cashReceived)}
+                      onChange={(v) => setCashReceived(v ? Number(v) : "")}
+                    />
                     {isCashInsufficient && (
-                      <p className="text-xs text-destructive font-bold mt-1 text-center">Falta: {formatCurrency(total - numericReceived)}</p>
+                      <p className="text-xs text-destructive font-bold text-center">
+                        Falta: {formatCurrency(total - numericReceived)}
+                      </p>
                     )}
                   </div>
                 )}
@@ -654,9 +694,15 @@ export function Sales() {
                 onClick={completeSale} 
                 className="w-full h-14 text-lg font-bold shadow-lg" 
                 size="lg"
-                disabled={cart.length === 0 || (paymentMethod === 'cash' && (numericReceived < total || cashReceived === '')) || (paymentMethod === 'credit' && selectedClient && total > selectedClient.creditBalance)}
+                disabled={
+                  productsLoading ||
+                  createSale.isPending ||
+                  cart.length === 0 ||
+                  (paymentMethod === "cash" && (numericReceived < total || cashReceived === "")) ||
+                  (paymentMethod === "credit" && selectedClient && total > selectedClient.creditBalance)
+                }
               >
-                Cobrar {formatCurrency(total)}
+                {createSale.isPending ? "Registrando…" : `Cobrar ${formatCurrency(total)}`}
               </Button>
             </CardContent>
           </Card>

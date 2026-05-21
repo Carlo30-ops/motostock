@@ -30,6 +30,13 @@ class OrderStatus(str, enum.Enum):
     received = "received"
 
 
+class WorkOrderStatus(str, enum.Enum):
+    scheduled = "scheduled"
+    in_progress = "in_progress"
+    completed = "completed"
+    cancelled = "cancelled"
+
+
 class DianStatus(str, enum.Enum):
     pending = "pending"
     accepted = "accepted"
@@ -48,6 +55,10 @@ class User(Base):
     pin_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, index=True)
     role: Mapped[str] = mapped_column(String(20), default="cashier", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    totp_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    totp_backup_codes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    totp_enabled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -125,6 +136,7 @@ class Client(Base):
 
     sales: Mapped[list["Sale"]] = relationship(back_populates="client")
     credit_ledger: Mapped[list["CreditLedger"]] = relationship(back_populates="client", cascade="all, delete-orphan")
+    vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="client", cascade="all, delete-orphan")
 
 
 # ─── Credit Ledger ────────────────────────────────────────────────────────────
@@ -174,10 +186,28 @@ class SaleItem(Base):
 
 # ─── Purchase Order ───────────────────────────────────────────────────────────
 
+class Supplier(Base):
+    __tablename__ = "suppliers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    contact_name: Mapped[str] = mapped_column(String(150), nullable=False, default="")
+    phone: Mapped[str] = mapped_column(String(30), nullable=False, default="")
+    email: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    address: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    rating: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    supplier_id: Mapped[Optional[int]] = mapped_column(ForeignKey("suppliers.id"), nullable=True)
     supplier: Mapped[str] = mapped_column(String(150), nullable=False)
     status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.pending, nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -239,3 +269,65 @@ class Invoice(Base):
     total: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ServiceTemplate(Base):
+    __tablename__ = "service_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    estimated_price: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    estimated_hours: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Vehicle(Base):
+    __tablename__ = "vehicles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False, index=True)
+    brand: Mapped[str] = mapped_column(String(100), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    plate: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    client: Mapped["Client"] = relationship(back_populates="vehicles")
+    work_orders: Mapped[list["WorkOrder"]] = relationship(back_populates="vehicle", cascade="all, delete-orphan")
+
+
+class WorkOrder(Base):
+    __tablename__ = "work_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id"), nullable=False)
+    status: Mapped[WorkOrderStatus] = mapped_column(
+        Enum(WorkOrderStatus), default=WorkOrderStatus.scheduled, nullable=False
+    )
+    scheduled_date: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    vehicle: Mapped["Vehicle"] = relationship(back_populates="work_orders")
+    services: Mapped[list["WorkOrderService"]] = relationship(
+        back_populates="work_order", cascade="all, delete-orphan"
+    )
+
+
+class WorkOrderService(Base):
+    __tablename__ = "work_order_services"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    work_order_id: Mapped[int] = mapped_column(ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
+    service_template_id: Mapped[int] = mapped_column(ForeignKey("service_templates.id"), nullable=False)
+
+    work_order: Mapped["WorkOrder"] = relationship(back_populates="services")
+    service_template: Mapped["ServiceTemplate"] = relationship()
+
+
+from app.models.refresh_token import RefreshToken  # noqa: E402, F401

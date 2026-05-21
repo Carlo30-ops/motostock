@@ -148,19 +148,6 @@ class RefreshTokenService:
         return expired_count
 
 
-# Modelo RefreshToken (necesita ser agregado a models)
-class RefreshToken:
-    """Modelo para refresh tokens"""
-    def __init__(self, token: str, user_id: int, expires_at: datetime, created_at: datetime):
-        self.token = token
-        self.user_id = user_id
-        self.expires_at = expires_at
-        self.created_at = created_at
-        self.is_active = True
-        self.revoked_at = None
-        self.last_used_at = None
-
-
 # Funciones de ayuda para endpoints de autenticación
 def create_user_tokens(user: User, db: Session) -> Dict[str, Any]:
     """Crea access y refresh tokens para un usuario"""

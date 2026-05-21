@@ -1,5 +1,10 @@
+/**
+ * Fase 1.2: ProtectedRoute exige access_token; permisos opcionales vía rol del usuario real.
+ */
+import { Navigate, useLocation } from "react-router";
+import { getAccessToken } from "../api/client";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 // Sistema de RBAC (Role-Based Access Control) para MotoStock
-// Basado en el diseño del proyecto Figma
 
 export type Permission = 
   | "canViewDashboard"
@@ -119,22 +124,36 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ]
 };
 
-// Hook de autenticación y permisos
-export function useAuth() {
-  // Mock user para desarrollo
-  const mockUser: User = {
-    id: "1",
-    username: "admin",
-    fullName: "Administrador del Sistema",
-    email: "admin@motostock.com",
-    role: "admin",
-    permissions: ROLE_PERMISSIONS.admin,
-    isActive: true,
-    lastLogin: new Date().toISOString(),
-    createdAt: "2024-01-01T00:00:00Z"
+/** Mapea roles del backend a permisos del diseño Figma. */
+function permissionsForBackendRole(role: string | undefined): Permission[] {
+  const map: Record<string, Permission[]> = {
+    superadmin: ROLE_PERMISSIONS.admin,
+    admin: ROLE_PERMISSIONS.admin,
+    supervisor: ROLE_PERMISSIONS.manager,
+    seller: ROLE_PERMISSIONS.manager,
+    cashier: ROLE_PERMISSIONS.cashier,
   };
+  return map[role ?? ""] ?? ROLE_PERMISSIONS.viewer;
+}
 
-  const user = mockUser; // En producción, esto vendría del contexto de autenticación
+export function useAuth() {
+  const { data: currentUser } = useCurrentUser();
+  const backendRole = currentUser?.role;
+
+  const user: User | null = currentUser
+    ? {
+        id: String(currentUser.id),
+        username: currentUser.username,
+        fullName: currentUser.username,
+        email: currentUser.email,
+        role: (["admin", "manager", "cashier", "viewer"].includes(backendRole ?? "")
+          ? (backendRole as UserRole)
+          : "viewer"),
+        permissions: permissionsForBackendRole(backendRole),
+        isActive: currentUser.is_active,
+        createdAt: new Date().toISOString(),
+      }
+    : null;
 
   const hasPermission = (permission: Permission): boolean => {
     if (!user || !user.isActive) return false;
@@ -143,12 +162,12 @@ export function useAuth() {
 
   const hasAnyPermission = (permissions: Permission[]): boolean => {
     if (!user || !user.isActive) return false;
-    return permissions.some(permission => user.permissions.includes(permission));
+    return permissions.some((permission) => user.permissions.includes(permission));
   };
 
   const hasAllPermissions = (permissions: Permission[]): boolean => {
     if (!user || !user.isActive) return false;
-    return permissions.every(permission => user.permissions.includes(permission));
+    return permissions.every((permission) => user.permissions.includes(permission));
   };
 
   const canAccessRoute = (path: string): boolean => {
@@ -161,7 +180,7 @@ export function useAuth() {
       "/purchase-orders": ["canViewOrders"],
       "/audit-logs": ["canViewAuditLogs"],
       "/backups": ["canManageBackups"],
-      "/users": ["canManageUsers"]
+      "/users": ["canManageUsers"],
     };
 
     const requiredPermissions = routePermissions[path];
@@ -174,7 +193,7 @@ export function useAuth() {
       admin: "Administrador",
       manager: "Gerente",
       cashier: "Cajero",
-      viewer: "Visualizador"
+      viewer: "Visualizador",
     };
     return roleNames[role];
   };
@@ -184,14 +203,14 @@ export function useAuth() {
       admin: "bg-purple-100 text-purple-800",
       manager: "bg-blue-100 text-blue-800",
       cashier: "bg-green-100 text-green-800",
-      viewer: "bg-gray-100 text-gray-800"
+      viewer: "bg-gray-100 text-gray-800",
     };
     return roleColors[role];
   };
 
   return {
     user,
-    isAuthenticated: !!user,
+    isAuthenticated: !!getAccessToken(),
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
@@ -199,9 +218,11 @@ export function useAuth() {
     getRoleDisplayName,
     getRoleColor,
     logout: () => {
-      // Implementar logout
-      console.log("Logout implementation needed");
-    }
+      import("../api/client").then(({ clearAuthTokens }) => {
+        clearAuthTokens();
+        window.location.href = "/login";
+      });
+    },
   };
 }
 
@@ -213,19 +234,24 @@ export interface ProtectedRouteProps {
   fallback?: React.ReactNode;
 }
 
-export function ProtectedRoute({ 
-  children, 
-  requiredPermissions = [], 
+export function ProtectedRoute({
+  children,
+  requiredPermissions = [],
   requireAll = false,
-  fallback = <div>Access Denied</div>
+  fallback = <div className="p-8 text-center">Acceso denegado</div>,
 }: ProtectedRouteProps) {
+  const location = useLocation();
   const { hasAnyPermission, hasAllPermissions } = useAuth();
+
+  if (!getAccessToken()) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
 
   if (requiredPermissions.length === 0) {
     return <>{children}</>;
   }
 
-  const hasAccess = requireAll 
+  const hasAccess = requireAll
     ? hasAllPermissions(requiredPermissions)
     : hasAnyPermission(requiredPermissions);
 

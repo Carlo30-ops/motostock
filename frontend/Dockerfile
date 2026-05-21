@@ -1,5 +1,5 @@
 # Multi-stage build optimizado para frontend con mejoras de seguridad y rendimiento
-FROM node:20-alpine as builder
+FROM node:22-alpine as builder
 
 WORKDIR /app
 
@@ -7,10 +7,10 @@ WORKDIR /app
 RUN corepack enable
 
 # Copiar archivos de dependencias primero para mejor cache
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* .npmrc* ./
 
 # Instalar dependencias con optimizaciones
-RUN pnpm install --frozen-lockfile --prod=false || npm install
+RUN pnpm install --prod=false --config.dangerouslyAllowAllBuilds=true
 
 # Copiar código fuente
 COPY . .
@@ -77,22 +77,11 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Exponer puerto 80
 EXPOSE 80
 
-# User no-root para seguridad
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
-
-# Cambiar ownership
-RUN chown -R nextjs:nodejs /usr/share/nginx/html && \
-    chown -R nextjs:nodejs /var/cache/nginx && \
-    chown -R nextjs:nodejs /var/log/nginx && \
-    chown -R nextjs:nodejs /etc/nginx/conf.d
-
-USER nextjs
-
+# nginx oficial en Alpine necesita root para escribir /run/nginx.pid
 CMD ["nginx", "-g", "daemon off;"]
 
 # Stage de desarrollo optimizado
-FROM node:20-alpine as development
+FROM node:22-alpine as development
 
 WORKDIR /app
 
@@ -100,7 +89,7 @@ WORKDIR /app
 RUN corepack enable
 
 # Instalar dependencias con cache optimizado
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* .npmrc* ./
 RUN pnpm install --frozen-lockfile || npm install
 
 COPY . .

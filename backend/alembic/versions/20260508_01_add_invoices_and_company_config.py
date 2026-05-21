@@ -9,18 +9,30 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
 revision: str = "20260508_01"
-down_revision: Union[str, None] = None
+down_revision: Union[str, None] = "20260508_02"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    dian_status_enum = sa.Enum("pending", "accepted", "rejected", name="dian_status_enum")
-    dian_status_enum.create(op.get_bind(), checkfirst=True)
+    # Evita fallo si el enum ya existe (reinicios de Docker con volumen pgdata persistente)
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE dian_status_enum AS ENUM ('pending', 'accepted', 'rejected');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
+    dian_status_enum = postgresql.ENUM(
+        "pending", "accepted", "rejected", name="dian_status_enum", create_type=False
+    )
 
     op.create_table(
         "company_config",

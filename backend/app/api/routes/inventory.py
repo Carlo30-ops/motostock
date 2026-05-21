@@ -1,3 +1,4 @@
+# Fase 1.1: rutas de inventario exigen JWT y rol mínimo cashier (mismo patrón que orders/invoices).
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from app import schemas, models
 from app.database import get_db
+from app.services.auth import require_minimum_role
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
 
 
 @router.get("/", response_model=list[schemas.ProductOut])

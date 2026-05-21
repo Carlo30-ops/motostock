@@ -15,6 +15,11 @@ from app.services.auth import (
 )
 from app.config import settings
 from app.middleware.rate_limiter import limiter
+from app.services.auth_refresh import (
+    RefreshTokenService,
+    create_user_tokens,
+    update_refresh_token_usage,
+)
 
 router = APIRouter()
 
@@ -38,6 +43,50 @@ def login_for_access_token(
         data={"sub": user.username, "role": user.role}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer", "role": user.role}
+
+
+@router.post("/token-with-refresh")
+@limiter.limit("5/minute")
+def login_with_refresh_token(
+    request: Request,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: Session = Depends(get_db),
+):
+    """Login que devuelve access_token y refresh_token (clientes móviles / offline)."""
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    tokens = create_user_tokens(user, db)
+    return {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
+        "token_type": tokens["token_type"],
+        "role": user.role,
+    }
+
+
+@router.post("/refresh", response_model=schemas.Token)
+def refresh_access_token(payload: schemas.RefreshTokenRequest, db: Session = Depends(get_db)):
+    tokens = RefreshTokenService.refresh_access_token(payload.refresh_token, db)
+    if not tokens:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token inválido")
+    update_refresh_token_usage(payload.refresh_token, db)
+    return {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
+        "token_type": tokens["token_type"],
+        "role": tokens["user"]["role"],
+    }
+
+
+@router.post("/logout")
+def logout(payload: schemas.RefreshTokenRequest, db: Session = Depends(get_db)):
+    RefreshTokenService.logout(payload.refresh_token, db)
+    return {"message": "Sesión cerrada"}
 
 
 @router.post("/pin-token", response_model=schemas.Token)

@@ -3,6 +3,7 @@ Servicio de autenticación de dos factores (2FA) usando TOTP
 Implementación de Time-based One-Time Passwords para seguridad adicional
 """
 
+import json
 import pyotp
 import qrcode
 import io
@@ -11,9 +12,28 @@ from typing import Optional, Tuple
 from datetime import datetime, timedelta
 import secrets
 
-from app.database import get_db
 from app.models import User
-from app.models.user_2fa import User2FA
+
+
+def _backup_payload(user: User) -> dict:
+    if not user.totp_backup_codes:
+        return {"hashed": [], "used": []}
+    try:
+        data = json.loads(user.totp_backup_codes)
+        if isinstance(data, dict):
+            return {
+                "hashed": list(data.get("hashed", [])),
+                "used": list(data.get("used", [])),
+            }
+    except (json.JSONDecodeError, TypeError):
+        pass
+    if isinstance(user.totp_backup_codes, list):
+        return {"hashed": user.totp_backup_codes, "used": []}
+    return {"hashed": [], "used": []}
+
+
+def _set_backup_payload(user: User, hashed: list, used: list) -> None:
+    user.totp_backup_codes = json.dumps({"hashed": hashed, "used": used})
 
 
 class TOTPService:
@@ -105,7 +125,7 @@ class UserTOTPService:
         """Habilita 2FA para un usuario"""
         try:
             # Obtener usuario
-            user = db.query(User2FA).filter(User2FA.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 return False, "Usuario no encontrado"
             
@@ -118,10 +138,9 @@ class UserTOTPService:
             
             # Guardar en base de datos
             user.totp_secret = secret
-            user.totp_backup_codes = hashed_backup_codes
+            _set_backup_payload(user, hashed_backup_codes, [])
             user.totp_enabled = True
             user.totp_enabled_at = datetime.utcnow()
-            user.used_backup_codes = []
             
             db.commit()
             
@@ -142,7 +161,7 @@ class UserTOTPService:
     def disable_2fa(self, user_id: int, db) -> Tuple[bool, str]:
         """Deshabilita 2FA para un usuario"""
         try:
-            user = db.query(User2FA).filter(User2FA.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 return False, "Usuario no encontrado"
             
@@ -150,7 +169,6 @@ class UserTOTPService:
             user.totp_secret = None
             user.totp_backup_codes = None
             user.totp_enabled_at = None
-            user.used_backup_codes = None
             
             db.commit()
             
@@ -163,7 +181,7 @@ class UserTOTPService:
     def verify_2fa_token(self, user_id: int, token: str, db) -> Tuple[bool, str]:
         """Verifica un token 2FA"""
         try:
-            user = db.query(User2FA).filter(User2FA.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 return False, "Usuario no encontrado"
             
@@ -175,20 +193,18 @@ class UserTOTPService:
                 return True, "Token 2FA válido"
             
             # Si falla TOTP, intentar con códigos de backup
-            if user.totp_backup_codes:
-                if self.totp_service.verify_backup_code(token, user.totp_backup_codes):
-                    # Marcar código como usado
-                    if not user.used_backup_codes:
-                        user.used_backup_codes = []
-                    
+            backup = _backup_payload(user)
+            if backup["hashed"]:
+                if self.totp_service.verify_backup_code(token, backup["hashed"]):
                     import hashlib
+
                     code_hash = hashlib.sha256(token.encode()).hexdigest()
-                    if code_hash not in user.used_backup_codes:
-                        user.used_backup_codes.append(code_hash)
-                        db.commit()
-                        return True, "Código de backup válido"
-                    else:
+                    if code_hash in backup["used"]:
                         return False, "Código de backup ya fue utilizado"
+                    backup["used"].append(code_hash)
+                    _set_backup_payload(user, backup["hashed"], backup["used"])
+                    db.commit()
+                    return True, "Código de backup válido"
             
             return False, "Token 2FA inválido"
             
@@ -198,13 +214,12 @@ class UserTOTPService:
     def get_2fa_status(self, user_id: int, db) -> dict:
         """Obtiene el estado 2FA de un usuario"""
         try:
-            user = db.query(User2FA).filter(User2FA.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 return {"error": "Usuario no encontrado"}
             
-            backup_codes_remaining = 0
-            if user.totp_backup_codes and user.used_backup_codes:
-                backup_codes_remaining = len(user.totp_backup_codes) - len(user.used_backup_codes)
+            backup = _backup_payload(user)
+            backup_codes_remaining = len(backup["hashed"]) - len(backup["used"])
             
             return {
                 "enabled": user.totp_enabled or False,
@@ -219,7 +234,7 @@ class UserTOTPService:
     def regenerate_backup_codes(self, user_id: int, db) -> Tuple[bool, str]:
         """Regenera códigos de backup para un usuario"""
         try:
-            user = db.query(User2FA).filter(User2FA.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 return False, "Usuario no encontrado"
             
@@ -231,8 +246,7 @@ class UserTOTPService:
             hashed_backup_codes = self.totp_service.hash_backup_codes(backup_codes)
             
             # Actualizar en base de datos
-            user.totp_backup_codes = hashed_backup_codes
-            user.used_backup_codes = []
+            _set_backup_payload(user, hashed_backup_codes, [])
             
             db.commit()
             

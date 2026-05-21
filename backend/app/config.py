@@ -1,4 +1,5 @@
 import secrets
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,7 +10,11 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)  # Genera clave segura por defecto
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # String separado por comas (compatible con docker-compose: CORS_ORIGINS=http://a,http://b)
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""

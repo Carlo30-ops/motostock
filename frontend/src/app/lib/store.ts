@@ -112,6 +112,10 @@ interface StoreState {
   getLowStockProducts: () => Product[];
   getTodayRevenue: () => number;
   getMonthRevenue: () => number;
+  addVehicle: (vehicle: Omit<Vehicle, "id">) => void;
+  updateVehicle: (id: string, updates: Partial<Vehicle>) => void;
+  addWorkOrder: (order: Omit<WorkOrder, "id">) => void;
+  updateWorkOrderStatus: (id: string, status: WorkOrder["status"]) => void;
 }
 
 const initialProducts: Product[] = [
@@ -310,7 +314,7 @@ const initialWorkOrders: WorkOrder[] = [
     id: "wo1",
     vehicleId: "v1",
     status: "in_progress",
-    scheduledDate: new Date().toISOString().split("T")[0],
+    scheduledDate: new Date().toISOString().split("T")[0] as string,
     serviceIds: ["st1", "st2"],
     notes: "Cliente reporta sonido extraño en la rueda delantera."
   }
@@ -415,22 +419,22 @@ const useStoreBase = create<StoreState>((set, get) => ({
       suppliers: state.suppliers.map((s) => (s.id === id ? { ...s, ...updates } : s)),
     })),
 
-  addVehicle: (vehicle) =>
+  addVehicle: (vehicle: Omit<Vehicle, "id">) =>
     set((state) => ({
       vehicles: [...state.vehicles, { ...vehicle, id: `v${state.vehicles.length + 1}` }],
     })),
 
-  updateVehicle: (id, updates) =>
+  updateVehicle: (id: string, updates: Partial<Vehicle>) =>
     set((state) => ({
       vehicles: state.vehicles.map((v) => (v.id === id ? { ...v, ...updates } : v)),
     })),
 
-  addWorkOrder: (order) =>
+  addWorkOrder: (order: Omit<WorkOrder, "id">) =>
     set((state) => ({
       workOrders: [...state.workOrders, { ...order, id: `wo${state.workOrders.length + 1}` }],
     })),
 
-  updateWorkOrderStatus: (id, status) =>
+  updateWorkOrderStatus: (id: string, status: WorkOrder["status"]) =>
     set((state) => ({
       workOrders: state.workOrders.map((w) => (w.id === id ? { ...w, status } : w)),
     })),
@@ -451,7 +455,7 @@ const useStoreBase = create<StoreState>((set, get) => ({
       if (!order || order.status === "received") {
         return state;
       }
-      const purchaseOrders = state.purchaseOrders.map((o) => (o.id === id ? { ...o, status: "received" } : o));
+      const purchaseOrders = state.purchaseOrders.map((o) => (o.id === id ? { ...o, status: "received" as const } : o));
       const products = state.products.map((product) => {
         const item = order.items.find((i) => i.productId === product.id);
         return item ? { ...product, stock: product.stock + item.quantity } : product;

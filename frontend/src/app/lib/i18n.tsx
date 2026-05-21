@@ -18,6 +18,26 @@ const translations: Translations = {
   "nav.clients": { en: "Clients", es: "Clientes" },
   "nav.reports": { en: "Reports", es: "Reportes" },
   "nav.orders": { en: "Orders", es: "Pedidos" },
+  "nav.workshop": { en: "Workshop", es: "Taller" },
+  "nav.suppliers": { en: "Suppliers", es: "Proveedores" },
+  "nav.profile": { en: "Profile", es: "Perfil" },
+
+  // Login
+  "login.title": { en: "MotoStock", es: "MotoStock" },
+  "login.subtitle": { en: "Workshop & parts management", es: "Gestión de taller y repuestos" },
+  "login.user": { en: "Username", es: "Usuario" },
+  "login.password": { en: "Password", es: "Contraseña" },
+  "login.submit": { en: "Sign in", es: "Entrar" },
+  "login.error": { en: "Invalid username or password", es: "Usuario o contraseña incorrectos" },
+  "login.demo": { en: "Demo credentials", es: "Credenciales demo" },
+
+  // Sales POS
+  "sales.scanReady": { en: "Ready to scan", es: "Listo para escanear" },
+  "sales.scanOk": { en: "Product added", es: "Producto añadido" },
+  "sales.scanError": { en: "Product not found", es: "Producto no encontrado" },
+
+  // Offline
+  "offline.pending": { en: "pending sync", es: "pendientes de sincronizar" },
 
   // Dashboard
   "dashboard.title": { en: "Dashboard", es: "Panel de Control" },
@@ -227,7 +247,7 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguage] = useState<Language>("es");
 
   const t = (key: string): string => {
     return translations[key]?.[language] || key;

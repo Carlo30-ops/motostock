@@ -1,6 +1,7 @@
+/** Hooks React Query para la API; Fase 2 añade useDeleteProduct para inventario. */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, CreditAdjustmentPayload, CompanyConfigUpsert } from "./client";
-import type { Client, Product, PurchaseOrder } from "../lib/store";
+import { api, CreateSalePayload, CreditAdjustmentPayload, CompanyConfigUpsert } from "./client";
+import type { Client, Product, PurchaseOrder, Supplier, Vehicle, WorkOrder } from "../lib/store";
 
 export function useProducts() {
   return useQuery({
@@ -76,6 +77,14 @@ export function useUpdateProduct() {
   });
 }
 
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteProduct(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
+  });
+}
+
 export function useCreateClient() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -97,14 +106,18 @@ export function useAdjustClientCredit() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: CreditAdjustmentPayload }) => 
       api.adjustClientCredit(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clients"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+    },
   });
 }
 
 export function useCreateSale() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: api.createSale,
+    mutationFn: ({ data, discountPct }: { data: CreateSalePayload; discountPct?: number }) =>
+      api.createSale(data, discountPct ?? 0),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -145,5 +158,110 @@ export function useUpsertCompanyConfig() {
   return useMutation({
     mutationFn: (data: CompanyConfigUpsert) => api.upsertCompanyConfig(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["companyConfig"] }),
+  });
+}
+
+export function useSuppliers() {
+  return useQuery({
+    queryKey: ["suppliers"],
+    queryFn: api.getSuppliers,
+  });
+}
+
+export function useCreateSupplier() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.createSupplier,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
+  });
+}
+
+export function useUpdateSupplier() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Supplier> }) =>
+      api.updateSupplier(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
+  });
+}
+
+export function useServiceTemplates() {
+  return useQuery({
+    queryKey: ["serviceTemplates"],
+    queryFn: api.getServiceTemplates,
+  });
+}
+
+export function useVehicles() {
+  return useQuery({
+    queryKey: ["vehicles"],
+    queryFn: () => api.getVehicles(),
+  });
+}
+
+export function useCreateVehicle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.createVehicle,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vehicles"] }),
+  });
+}
+
+export function useWorkOrders() {
+  return useQuery({
+    queryKey: ["workOrders"],
+    queryFn: api.getWorkOrders,
+  });
+}
+
+export function useCreateWorkOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.createWorkOrder,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workOrders"] }),
+  });
+}
+
+export function useUpdateWorkOrderStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: WorkOrder["status"] }) =>
+      api.updateWorkOrderStatus(id, status),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workOrders"] }),
+  });
+}
+
+export function use2FAStatus() {
+  return useQuery({
+    queryKey: ["2faStatus"],
+    queryFn: api.get2FAStatus,
+  });
+}
+
+export function useEnable2FA() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.enable2FA,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["2faStatus"] }),
+  });
+}
+
+export function useVerify2FA() {
+  return useMutation({
+    mutationFn: (token: string) => api.verify2FA(token),
+  });
+}
+
+export function useDisable2FA() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.disable2FA,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["2faStatus"] }),
+  });
+}
+
+export function useRegenerateBackupCodes() {
+  return useMutation({
+    mutationFn: api.regenerateBackupCodes,
   });
 }

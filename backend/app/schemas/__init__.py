@@ -13,6 +13,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     role: str
+    refresh_token: Optional[str] = None
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 
 class TokenData(BaseModel):
@@ -219,6 +224,7 @@ class PurchaseOrderItemOut(BaseModel):
 
 class PurchaseOrderCreate(BaseModel):
     supplier: str
+    supplier_id: Optional[int] = None
     date: date
     items: list[PurchaseOrderItemIn]
     notes: str = ""
@@ -228,6 +234,7 @@ class PurchaseOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     supplier: str
+    supplier_id: Optional[int] = None
     status: str
     date: date
     total: float
@@ -398,3 +405,90 @@ class SyncReportOut(BaseModel):
     failed_count: int
     conflict_count: int
     conflicts: list[SyncConflict]
+
+
+# ─── Supplier ─────────────────────────────────────────────────────────────────
+
+class SupplierCreate(BaseModel):
+    name: str
+    contact_name: str = ""
+    phone: str = ""
+    email: str = ""
+    address: str = ""
+    rating: int = 3
+    is_active: bool = True
+
+
+class SupplierUpdate(BaseModel):
+    name: Optional[str] = None
+    contact_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    rating: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class SupplierOut(SupplierCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# ─── Workshop ─────────────────────────────────────────────────────────────────
+
+class ServiceTemplateOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    description: str
+    estimated_price: float
+    estimated_hours: float
+    is_active: bool
+    created_at: datetime
+
+
+class VehicleCreate(BaseModel):
+    client_id: int
+    brand: str
+    model: str
+    year: int
+    plate: str
+
+
+class VehicleUpdate(BaseModel):
+    client_id: Optional[int] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    year: Optional[int] = None
+    plate: Optional[str] = None
+
+
+class VehicleOut(VehicleCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: datetime
+
+
+class WorkOrderCreate(BaseModel):
+    vehicle_id: int
+    scheduled_date: date
+    service_ids: list[int] = []
+    notes: str = ""
+
+
+class WorkOrderStatusUpdate(BaseModel):
+    status: str
+
+
+class WorkOrderOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    vehicle_id: int
+    status: str
+    scheduled_date: date
+    notes: str
+    service_ids: list[int] = []
+    created_at: datetime
+    updated_at: datetime

@@ -1,62 +1,67 @@
-import { useState, useEffect } from "react";
-import { Shield, Key, CheckCircle2, QrCode, Lock, RefreshCw, Copy, Check, AlertTriangle } from "lucide-react";
+/**
+ * Perfil: contraseña (simulado) y 2FA conectado a /api/2fa (Fase B).
+ */
+import { useState } from "react";
+import { Shield, Key, CheckCircle2, Lock, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
+import { Badge } from "../components/ui/Badge";
 import { toast } from "sonner";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { api } from "../api/client";
+import {
+  use2FAStatus,
+  useEnable2FA,
+  useVerify2FA,
+  useDisable2FA,
+  useRegenerateBackupCodes,
+} from "../api/hooks";
+import axios from "axios";
+
+function apiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data;
+    if (typeof detail === "object" && detail !== null && "detail" in detail) {
+      return String((detail as { detail: unknown }).detail);
+    }
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Error desconocido";
+}
 
 export function Profile() {
   const { data: currentUser } = useCurrentUser();
-  
+  const { data: tfaStatus, isLoading: loading2fa } = use2FAStatus();
+  const enable2FA = useEnable2FA();
+  const verify2FA = useVerify2FA();
+  const disable2FA = useDisable2FA();
+  const regenerateBackup = useRegenerateBackupCodes();
+
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
-    confirm: ""
+    confirm: "",
   });
-  
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // Estados para 2FA
-  const [twoFAStatus, setTwoFAStatus] = useState<{ enabled: boolean; backup_codes_remaining: number } | null>(null);
-  const [twoFAStep, setTwoFAStep] = useState<'status' | 'password' | 'verify'>('status');
-  const [twoFAPassword, setTwoFAPassword] = useState("");
-  const [twoFASetupData, setTwoFASetupData] = useState<{ qr_code: string; backup_codes: string[]; instructions: string } | null>(null);
-  const [twoFAToken, setTwoFAToken] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-
-  const fetch2FAStatus = async () => {
-    try {
-      const res = await api.get2FAStatus();
-      if (res.success) {
-        setTwoFAStatus(res.data);
-      }
-    } catch (err: any) {
-      toast.error("Error al obtener estado 2FA");
-    }
-  };
-
-  useEffect(() => {
-    fetch2FAStatus();
-  }, []);
+  const [verifyToken, setVerifyToken] = useState("");
+  const [setupData, setSetupData] = useState<{
+    qr_code: string;
+    backup_codes: string[];
+  } | null>(null);
+  const [lastBackupCodes, setLastBackupCodes] = useState<string[]>([]);
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (passwords.new !== passwords.confirm) {
       toast.error("Las nuevas contraseñas no coinciden");
       return;
     }
-    
     if (passwords.new.length < 8) {
       toast.error("La contraseña debe tener al menos 8 caracteres");
       return;
     }
-
     setIsUpdating(true);
-    
-    // Simulate API call for password change
     setTimeout(() => {
       setIsUpdating(false);
       setPasswords({ current: "", new: "", confirm: "" });
@@ -64,78 +69,52 @@ export function Profile() {
     }, 1500);
   };
 
-  const handleEnable2FA = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setActionLoading(true);
-    try {
-      const res = await api.enable2FA(twoFAPassword);
-      if (res.success) {
-        setTwoFASetupData(res.data);
-        setTwoFAStep('verify');
-        setTwoFAPassword("");
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Contraseña incorrecta o error al habilitar 2FA");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleVerify2FA = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.verify2FA(twoFAToken);
-      if (res.success) {
-        toast.success("2FA activado correctamente");
-        setTwoFAStep('status');
-        setTwoFAToken("");
-        fetch2FAStatus();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Código de verificación inválido");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDisable2FA = async () => {
-    if (!confirm("¿Estás seguro de que deseas desactivar la autenticación de dos factores? Tu cuenta será menos segura.")) {
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const res = await api.disable2FA();
-      if (res.success) {
-        toast.success("2FA desactivado correctamente");
-        setTwoFASetupData(null);
-        fetch2FAStatus();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Error al desactivar 2FA");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRegenerateBackupCodes = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.regenerateBackupCodes();
-      if (res.success) {
-        toast.success("Nuevos códigos de respaldo generados");
-        setTwoFASetupData({
-          qr_code: "",
+  const handleEnable2FA = () => {
+    enable2FA.mutate(undefined, {
+      onSuccess: (res) => {
+        setSetupData({
+          qr_code: res.data.qr_code,
           backup_codes: res.data.backup_codes,
-          instructions: ""
         });
-        fetch2FAStatus();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Error al regenerar códigos");
-    } finally {
-      setActionLoading(false);
-    }
+        setLastBackupCodes(res.data.backup_codes);
+        toast.success("Escanea el código QR con tu app de autenticación");
+      },
+      onError: (err) => toast.error(apiErrorMessage(err)),
+    });
   };
+
+  const handleVerify2FA = (e: React.FormEvent) => {
+    e.preventDefault();
+    verify2FA.mutate(verifyToken.trim(), {
+      onSuccess: () => {
+        toast.success("Código verificado correctamente");
+        setVerifyToken("");
+      },
+      onError: (err) => toast.error(apiErrorMessage(err)),
+    });
+  };
+
+  const handleDisable2FA = () => {
+    disable2FA.mutate(undefined, {
+      onSuccess: () => {
+        setSetupData(null);
+        toast.success("2FA deshabilitado");
+      },
+      onError: (err) => toast.error(apiErrorMessage(err)),
+    });
+  };
+
+  const handleRegenerateBackup = () => {
+    regenerateBackup.mutate(undefined, {
+      onSuccess: (res) => {
+        setLastBackupCodes(res.data.backup_codes);
+        toast.success("Códigos de respaldo regenerados");
+      },
+      onError: (err) => toast.error(apiErrorMessage(err)),
+    });
+  };
+
+  const tfaEnabled = tfaStatus?.enabled ?? false;
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-4xl mx-auto">
@@ -159,16 +138,26 @@ export function Profile() {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Nombre</p>
-                  <p className="font-medium">{currentUser?.name || "Administrador"}</p>
+                  <p className="font-medium">{currentUser?.username || "—"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Rol del Sistema</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded">
-                      {currentUser?.role || "ADMIN"}
+                      {currentUser?.role || "—"}
                     </span>
                     <CheckCircle2 className="w-4 h-4 text-success" />
                   </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">2FA</p>
+                  {loading2fa ? (
+                    <Loader2 className="w-4 h-4 animate-spin mt-1" />
+                  ) : (
+                    <Badge variant={tfaEnabled ? "success" : "secondary"} className="mt-1">
+                      {tfaEnabled ? "Activo" : "Inactivo"}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -186,54 +175,34 @@ export function Profile() {
             <CardContent>
               <form onSubmit={handlePasswordChange} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Contraseña Actual
-                  </label>
-                  <Input 
-                    type="password" 
-                    placeholder="Ingresa tu contraseña actual"
+                  <label className="block text-sm font-medium mb-1">Contraseña Actual</label>
+                  <Input
+                    type="password"
                     value={passwords.current}
-                    onChange={(e) => setPasswords({...passwords, current: e.target.value})}
+                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                     required
                   />
                 </div>
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Nueva Contraseña
-                    </label>
-                    <Input 
-                      type="password" 
-                      placeholder="Mínimo 8 caracteres"
+                    <label className="block text-sm font-medium mb-1">Nueva Contraseña</label>
+                    <Input
+                      type="password"
                       value={passwords.new}
-                      onChange={(e) => setPasswords({...passwords, new: e.target.value})}
+                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Confirmar Contraseña
-                    </label>
-                    <Input 
-                      type="password" 
-                      placeholder="Repite la nueva contraseña"
+                    <label className="block text-sm font-medium mb-1">Confirmar</label>
+                    <Input
+                      type="password"
                       value={passwords.confirm}
-                      onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
+                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
                       required
                     />
                   </div>
                 </div>
-
-                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                  <strong>Requisitos de seguridad:</strong>
-                  <ul className="list-disc ml-5 mt-1 space-y-1">
-                    <li>Al menos 8 caracteres de longitud</li>
-                    <li>No debe ser igual a las últimas 3 contraseñas</li>
-                    <li>Incluye al menos un número o carácter especial</li>
-                  </ul>
-                </div>
-
                 <div className="flex justify-end pt-2">
                   <Button type="submit" variant="primary" disabled={isUpdating}>
                     {isUpdating ? "Actualizando..." : "Actualizar Contraseña"}
@@ -251,190 +220,98 @@ export function Profile() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {twoFAStatus === null ? (
-                <div className="flex items-center justify-center p-4">
-                  <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+              {loading2fa ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : twoFAStep === 'status' ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-semibold text-sm">
-                        Estado: <span className={twoFAStatus.enabled ? "text-success" : "text-warning"}>{twoFAStatus.enabled ? "Activado" : "Desactivado"}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {twoFAStatus.enabled
-                          ? "Tu cuenta está protegida con autenticación TOTP adicional."
-                          : "Añade una capa extra de seguridad requiriendo un código de tu teléfono al iniciar sesión."}
-                      </p>
-                    </div>
-                    {twoFAStatus.enabled ? (
-                      <span className="px-2 py-1 bg-success/15 text-success text-xs font-semibold rounded-full">
-                        Seguro
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 bg-warning/15 text-warning text-xs font-semibold rounded-full">
-                        Recomendado
-                      </span>
-                    )}
-                  </div>
-
-                  {twoFAStatus.enabled ? (
-                    <div className="space-y-4">
-                      <div className="p-4 border rounded-lg space-y-2">
-                        <p className="text-sm font-medium">Códigos de Respaldo</p>
-                        <p className="text-xs text-muted-foreground">
-                          Te quedan {twoFAStatus.backup_codes_remaining} códigos de respaldo de un solo uso.
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRegenerateBackupCodes}
-                          disabled={actionLoading}
-                          className="mt-2"
-                        >
-                          {actionLoading ? "Regenerando..." : "Regenerar Códigos"}
-                        </Button>
-                      </div>
-
-                      {twoFASetupData && (
-                        <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-                          <p className="text-sm font-semibold text-warning flex items-center gap-1">
-                            <AlertTriangle className="w-4 h-4" /> ¡Guarda tus nuevos códigos!
-                          </p>
-                          <div className="grid grid-cols-2 gap-2 mt-2">
-                            {twoFASetupData.backup_codes.map((code, idx) => (
-                              <code key={idx} className="p-1 bg-background border text-center rounded text-sm select-all">
-                                {code}
-                              </code>
-                            ))}
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              navigator.clipboard.writeText(twoFASetupData.backup_codes.join("\n"));
-                              toast.success("Copiado al portapapeles");
-                            }}
-                            className="w-full mt-2"
-                          >
-                            Copiar Códigos
-                          </Button>
-                        </div>
-                      )}
-
-                      <Button
-                        variant="destructive"
-                        onClick={handleDisable2FA}
-                        disabled={actionLoading}
-                        className="w-full"
-                      >
-                        {actionLoading ? "Desactivando..." : "Desactivar 2FA"}
-                      </Button>
-                    </div>
-                  ) : (
+              ) : tfaEnabled ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    2FA activo. Códigos de respaldo restantes:{" "}
+                    <strong>{tfaStatus?.backup_codes_remaining ?? 0}</strong>
+                  </p>
+                  <form onSubmit={handleVerify2FA} className="flex gap-2">
+                    <Input
+                      placeholder="Código de 6 dígitos"
+                      value={verifyToken}
+                      onChange={(e) => setVerifyToken(e.target.value)}
+                      maxLength={8}
+                    />
+                    <Button type="submit" variant="outline" disabled={verify2FA.isPending}>
+                      Verificar
+                    </Button>
+                  </form>
+                  <div className="flex flex-wrap gap-2">
                     <Button
-                      variant="primary"
-                      onClick={() => setTwoFAStep('password')}
+                      variant="outline"
+                      onClick={handleRegenerateBackup}
+                      disabled={regenerateBackup.isPending}
+                    >
+                      Regenerar códigos backup
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDisable2FA}
+                      disabled={disable2FA.isPending}
+                    >
+                      Deshabilitar 2FA
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Protege tu cuenta con Google Authenticator, Authy u otra app TOTP.
+                  </p>
+                  {!setupData ? (
+                    <Button
+                      onClick={handleEnable2FA}
+                      disabled={enable2FA.isPending}
                       className="w-full"
                     >
-                      Habilitar 2FA
+                      {enable2FA.isPending ? "Generando..." : "Activar 2FA"}
                     </Button>
-                  )}
-                </div>
-              ) : twoFAStep === 'password' ? (
-                <form onSubmit={handleEnable2FA} className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Por motivos de seguridad, confirma tu contraseña para configurar la autenticación de dos factores.
-                  </p>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Contraseña</label>
-                    <Input
-                      type="password"
-                      placeholder="Ingresa tu contraseña actual"
-                      value={twoFAPassword}
-                      onChange={(e) => setTwoFAPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button type="button" variant="outline" onClick={() => setTwoFAStep('status')}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" variant="primary" disabled={actionLoading}>
-                      {actionLoading ? "Cargando..." : "Siguiente"}
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-background">
-                    {twoFASetupData?.qr_code ? (
-                      <img src={twoFASetupData.qr_code} alt="Código QR de Configuración 2FA" className="w-48 h-48 border p-2 bg-white rounded" />
-                    ) : (
-                      <QrCode className="w-48 h-48 text-muted-foreground" />
-                    )}
-                    <p className="text-xs text-muted-foreground text-center">
-                      Escanea este código QR con tu aplicación de autenticación (Google Authenticator, Authy, etc.)
-                    </p>
-                  </div>
-
-                  {twoFASetupData?.backup_codes && (
-                    <div className="p-4 bg-warning/5 border border-warning/20 rounded-lg space-y-2">
-                      <p className="text-sm font-semibold text-warning flex items-center gap-1">
-                        <AlertTriangle className="w-4 h-4" /> Códigos de Respaldo Importantes
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Guarda estos códigos en un lugar seguro. Te permitirán acceder a tu cuenta si pierdes tu dispositivo.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        {twoFASetupData.backup_codes.map((code, idx) => (
-                          <code key={idx} className="p-1 bg-muted border text-center rounded text-xs select-all">
-                            {code}
-                          </code>
-                        ))}
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex justify-center">
+                        <img
+                          src={setupData.qr_code}
+                          alt="Código QR 2FA"
+                          className="w-48 h-48 border rounded-lg"
+                        />
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(twoFASetupData.backup_codes.join("\n"));
-                          toast.success("Copiado al portapapeles");
-                        }}
-                        className="w-full mt-1"
-                      >
-                        Copiar todos los códigos
-                      </Button>
+                      <div className="rounded-lg border p-3 bg-muted/30">
+                        <p className="text-xs font-semibold mb-2">
+                          Guarda estos códigos de respaldo (solo se muestran una vez):
+                        </p>
+                        <ul className="text-xs font-mono grid grid-cols-2 gap-1">
+                          {setupData.backup_codes.map((code) => (
+                            <li key={code}>{code}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <form onSubmit={handleVerify2FA} className="flex gap-2">
+                        <Input
+                          placeholder="Confirma con código de la app"
+                          value={verifyToken}
+                          onChange={(e) => setVerifyToken(e.target.value)}
+                          required
+                        />
+                        <Button type="submit" disabled={verify2FA.isPending}>
+                          Confirmar
+                        </Button>
+                      </form>
                     </div>
                   )}
+                </>
+              )}
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium">Verificar Código</label>
-                    <p className="text-xs text-muted-foreground">
-                      Ingresa el código de 6 dígitos que muestra tu aplicación para finalizar la activación.
-                    </p>
-                    <Input
-                      type="text"
-                      placeholder="000000"
-                      maxLength={6}
-                      className="text-center font-mono tracking-widest text-lg"
-                      value={twoFAToken}
-                      onChange={(e) => setTwoFAToken(e.target.value.replace(/\D/g, ""))}
-                    />
-                  </div>
-
-                  <div className="flex gap-2 justify-end">
-                    <Button type="button" variant="outline" onClick={() => setTwoFAStep('status')}>
-                      Cancelar
-                    </Button>
-                    <Button
-                      onClick={handleVerify2FA}
-                      disabled={twoFAToken.length !== 6 || actionLoading}
-                      variant="primary"
-                    >
-                      {actionLoading ? "Activando..." : "Verificar y Activar"}
-                    </Button>
-                  </div>
+              {lastBackupCodes.length > 0 && !setupData && (
+                <div className="rounded-lg border p-3 text-xs font-mono">
+                  <p className="font-semibold mb-2">Últimos códigos generados:</p>
+                  {lastBackupCodes.map((c) => (
+                    <div key={c}>{c}</div>
+                  ))}
                 </div>
               )}
             </CardContent>

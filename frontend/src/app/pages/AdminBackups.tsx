@@ -1,6 +1,8 @@
+/** Fase 1.2: descarga de backups usa access_token unificado. */
 import { useState, useEffect } from "react";
 import { useBackups, useTriggerBackup } from "../api/hooks";
 import type { BackupFile } from "../api/client";
+import { getAccessToken } from "../api/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Download, HardDrive, Clock, CheckCircle, DatabaseBackup, Loader2, Info } from "lucide-react";
@@ -68,7 +70,7 @@ export function AdminBackups() {
   const handleDownload = (filename: string) => {
     const url = `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/backups/${filename}/download`;
     // We need to attach the token if auth is required for download
-    const token = localStorage.getItem("token");
+    const token = getAccessToken();
     
     fetch(url, {
       headers: {

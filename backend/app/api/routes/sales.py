@@ -1,3 +1,4 @@
+# Fase 1.1: ventas y combos protegidos con autenticación JWT (rol cashier o superior).
 from datetime import date
 from typing import Annotated
 
@@ -6,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app import schemas, models
 from app.database import get_db
+from app.services.auth import require_minimum_role
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
 
 
 @router.get("/", response_model=list[schemas.SaleOut])

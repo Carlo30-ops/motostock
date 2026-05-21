@@ -1,4 +1,4 @@
-"""clients: add updated_at for sync LWW
+﻿"""clients: add updated_at for sync LWW
 
 Revision ID: 20260513_01
 Revises: 20260508_04

@@ -1,10 +1,10 @@
-"""initial schema
+﻿"""initial schema
 
 Revision ID: 20260508_03
 Revises: 20260508_02
 Create Date: 2026-05-08 14:00:00.000000
 
-Esta migración crea todas las tablas iniciales del sistema,
+Esta migraci├│n crea todas las tablas iniciales del sistema,
 reemplazando el uso del seed.sql para mantener consistencia.
 """
 
@@ -16,18 +16,37 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "20260508_03"
-down_revision: Union[str, None] = "20260508_02"
+down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Enums
-    payment_method_enum = sa.Enum("cash", "card", "credit", "nequi", name="payment_method_enum")
-    payment_method_enum.create(op.get_bind(), checkfirst=True)
-    
-    order_status_enum = sa.Enum("pending", "sent", "received", name="order_status_enum")
-    order_status_enum.create(op.get_bind(), checkfirst=True)
+    # Enums idempotentes (evita DuplicateObject al crear tablas)
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE payment_method_enum AS ENUM ('cash', 'card', 'credit', 'nequi');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE order_status_enum AS ENUM ('pending', 'sent', 'received');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
+    payment_method_enum = postgresql.ENUM(
+        "cash", "card", "credit", "nequi", name="payment_method_enum", create_type=False
+    )
+    order_status_enum = postgresql.ENUM(
+        "pending", "sent", "received", name="order_status_enum", create_type=False
+    )
     
     # Tabla users
     op.create_table(

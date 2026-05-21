@@ -83,7 +83,7 @@ export function SessionTimeout() {
         <form onSubmit={handleUnlock} className="w-full space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">
-              Contraseña de {currentUser?.name || "Usuario"}
+              Contraseña de {currentUser?.username || "Usuario"}
             </label>
             <Input 
               type="password" 

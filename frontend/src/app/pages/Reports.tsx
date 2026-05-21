@@ -1,337 +1,330 @@
+/**
+ * Reportes conectados a la API (/reports/sales, /reports/inventory).
+ */
 import { useState } from "react";
-import { FileDown, TrendingUp, Package, DollarSign } from "lucide-react";
+import { FileDown, TrendingUp, Package, DollarSign, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
-import { store, Product } from "../lib/store";
 import { formatCurrency, formatDate } from "../lib/utils";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { hasRoleAccess } from "../lib/rbac";
+import { useSalesReport, useInventoryReport } from "../api/hooks";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
+import { useLanguage } from "../lib/i18n";
+import { SalesReportChart } from "../components/SalesReportChart";
+import { KpiCard } from "../components/ui/KpiCard";
+
+function defaultDateRange() {
+  const today = new Date();
+  const from = new Date(today.getFullYear(), today.getMonth(), 1);
+  return {
+    from: format(from, "yyyy-MM-dd"),
+    to: format(today, "yyyy-MM-dd"),
+  };
+}
 
 export function Reports() {
+  const { t } = useLanguage();
   const { data: currentUser } = useCurrentUser();
   const canSeeCosts = hasRoleAccess(currentUser?.role, "supervisor");
-  const [dateFrom, setDateFrom] = useState("2026-05-01");
-  const [dateTo, setDateTo] = useState("2026-05-07");
+  const defaults = defaultDateRange();
+  const [dateFrom, setDateFrom] = useState(defaults.from);
+  const [dateTo, setDateTo] = useState(defaults.to);
 
-  const filteredSales = store.sales.filter((sale) => {
-    const saleDate = new Date(sale.date);
-    const from = new Date(dateFrom);
-    const to = new Date(dateTo);
-    return saleDate >= from && saleDate <= to;
-  });
+  const {
+    data: salesReport,
+    isLoading: salesLoading,
+    isError: salesError,
+    refetch: refetchSales,
+  } = useSalesReport(dateFrom, dateTo);
+  const { data: inventoryReport, isLoading: inventoryLoading } = useInventoryReport();
 
-  const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
-  const totalCost = canSeeCosts
-    ? filteredSales.reduce((sum, sale) => {
-    return (
-      sum +
-      sale.items.reduce((itemSum, item) => {
-        const product = store.products.find((p) => p.id === item.productId);
-        return itemSum + (product?.costPrice || 0) * item.quantity;
-      }, 0)
-    );
-  }, 0)
-    : 0;
-  const totalProfit = totalRevenue - totalCost;
-  const averageTicket = filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0;
+  const exportReport = (type: "sales" | "inventory", fmt: "excel" | "pdf") => {
+    if (type === "sales" && !salesReport) {
+      toast.error("No hay datos de ventas para exportar");
+      return;
+    }
+    if (type === "inventory" && !inventoryReport) {
+      toast.error("No hay datos de inventario para exportar");
+      return;
+    }
 
-  const productSales = new Map<string, { product: Product; quantity: number; revenue: number }>();
-  filteredSales.forEach((sale) => {
-    sale.items.forEach((item) => {
-      const product = store.products.find((p) => p.id === item.productId);
-      if (product) {
-        const existing = productSales.get(item.productId);
-        if (existing) {
-          existing.quantity += item.quantity;
-          existing.revenue += item.price * item.quantity;
-        } else {
-          productSales.set(item.productId, {
-            product,
-            quantity: item.quantity,
-            revenue: item.price * item.quantity,
-          });
-        }
-      }
-    });
-  });
-
-  const topProducts = Array.from(productSales.values())
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-
-  const currentStockValue = canSeeCosts
-    ? store.products.reduce(
-    (sum, product) => sum + product.stock * product.costPrice,
-    0
-  )
-    : 0;
-
-  const slowMovers = store.products.filter((product) => {
-    const sold = productSales.get(product.id);
-    return !sold || sold.quantity < 2;
-  });
-
-  const exportReport = (type: "sales" | "inventory", format: "excel" | "pdf") => {
-    if (type === "sales") {
-      const data = filteredSales.map((sale) => ({
-        Fecha: formatDate(sale.date),
-        Total: formatCurrency(sale.total),
-        Pago: sale.paymentMethod,
-        Items: sale.items.length,
+    if (type === "sales" && salesReport) {
+      const rows = salesReport.rows.map((r) => ({
+        Producto: r.product_name,
+        Categoría: r.category,
+        Cantidad: r.quantity_sold,
+        Ingresos: r.revenue,
+        ...(canSeeCosts ? { Costo: r.cost, Utilidad: r.profit } : {}),
       }));
-      
-      if (format === "excel") {
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Ventas");
-        XLSX.writeFile(workbook, `Reporte_Ventas_${dateFrom}_${dateTo}.xlsx`);
-        toast.success("Reporte de ventas exportado a Excel");
+
+      if (fmt === "excel") {
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Ventas");
+        XLSX.writeFile(wb, `reporte-ventas-${dateFrom}-${dateTo}.xlsx`);
       } else {
         const doc = new jsPDF();
-        doc.text(`Reporte de Ventas: ${dateFrom} a ${dateTo}`, 14, 15);
-        autoTable(doc, {
-          head: [['Fecha', 'Total', 'Pago', 'Items']],
-          body: data.map(d => [d.Fecha, d.Total, d.Pago, d.Items.toString()]),
-          startY: 20
+        doc.text(`Reporte de ventas ${dateFrom} — ${dateTo}`, 14, 15);
+        autoTable({
+          head: [Object.keys(rows[0] ?? { Producto: "" })],
+          body: rows.map((r) => Object.values(r)),
+          startY: 22,
         });
-        doc.save(`Reporte_Ventas_${dateFrom}_${dateTo}.pdf`);
-        toast.success("Reporte de ventas exportado a PDF");
+        doc.save(`reporte-ventas-${dateFrom}-${dateTo}.pdf`);
       }
-    } else {
-      const data = store.products.map((p) => ({
-        Codigo: p.code,
-        Nombre: p.name,
-        Stock: p.stock,
-        Valor: formatCurrency(p.stock * p.costPrice),
+      toast.success("Reporte exportado");
+      return;
+    }
+
+    if (type === "inventory" && inventoryReport) {
+      const rows = inventoryReport.rows.map((r) => ({
+        Producto: r.product_name,
+        Categoría: r.category,
+        Marca: r.brand,
+        Stock: r.stock,
+        Estado: r.status,
+        ...(canSeeCosts ? { "Valor stock": r.stock * (inventoryReport.rows.find((x) => x.product_id === r.product_id)?.stock ?? 0) } : {}),
       }));
-      
-      if (format === "excel") {
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario");
-        XLSX.writeFile(workbook, "Reporte_Inventario.xlsx");
-        toast.success("Reporte de inventario exportado a Excel");
+
+      if (fmt === "excel") {
+        const ws = XLSX.utils.json_to_sheet(
+          inventoryReport.rows.map((r) => ({
+            Producto: r.product_name,
+            Categoría: r.category,
+            Marca: r.brand,
+            Stock: r.stock,
+            Estado: r.status,
+          }))
+        );
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+        XLSX.writeFile(wb, `reporte-inventario-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
       } else {
         const doc = new jsPDF();
-        doc.text("Reporte de Inventario (Valoracion)", 14, 15);
-        autoTable(doc, {
-          head: [['Código', 'Nombre', 'Stock', 'Valor Total']],
-          body: data.map(d => [d.Codigo, d.Nombre, d.Stock.toString(), d.Valor]),
-          startY: 20
+        doc.text("Reporte de inventario", 14, 15);
+        autoTable({
+          head: [["Producto", "Categoría", "Stock", "Estado"]],
+          body: rows.map((r) => [r.Producto, r.Categoría, r.Stock, r.Estado]),
+          startY: 22,
         });
-        doc.save("Reporte_Inventario.pdf");
-        toast.success("Reporte de inventario exportado a PDF");
+        doc.save(`reporte-inventario-${format(new Date(), "yyyy-MM-dd")}.pdf`);
       }
+      toast.success("Reporte exportado");
     }
   };
+
+  const topProducts = salesReport?.rows.slice(0, 5) ?? [];
+  const slowMovers =
+    inventoryReport?.rows.filter((r) => r.status === "Good" && r.stock > 0).slice(0, 8) ?? [];
 
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
-        <h1>Reports & Analytics</h1>
-        <p className="text-muted-foreground mt-1">View sales and inventory insights</p>
+        <h1>{t("reports.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("reports.subtitle")}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Date Range</CardTitle>
+          <CardTitle>Rango de fechas (ventas)</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <label className="block mb-2">From</label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            </div>
-            <div className="flex-1">
-              <label className="block mb-2">To</label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-            </div>
+        <CardContent className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="block text-sm mb-1">Desde</label>
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
+          <div>
+            <label className="block text-sm mb-1">Hasta</label>
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          <Button variant="outline" onClick={() => refetchSales()}>
+            Actualizar
+          </Button>
         </CardContent>
       </Card>
 
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2>Sales Report</h2>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => exportReport("sales", "excel")}>
-              <FileDown className="w-4 h-4 mr-2" />
-              Exportar a Excel
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => exportReport("sales", "pdf")}>
-              <FileDown className="w-4 h-4 mr-2" />
-              Exportar a PDF
-            </Button>
-          </div>
-        </div>
+      {salesError && (
+        <p className="text-destructive text-sm">
+          No se pudo cargar el reporte de ventas. Requiere rol supervisor o superior.
+        </p>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Total Sold</CardTitle>
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <DollarSign className="w-5 h-5 text-primary" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-medium">{formatCurrency(totalRevenue)}</div>
-              <p className="text-sm text-muted-foreground mt-1">{filteredSales.length} transactions</p>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          title="Ingresos"
+          value={salesLoading ? "…" : formatCurrency(salesReport?.total_revenue ?? 0)}
+          icon={DollarSign}
+          subtitle={`${salesReport?.total_transactions ?? 0} transacciones`}
+          loading={salesLoading}
+        />
 
-          {canSeeCosts && (
+        {canSeeCosts && (
+          <>
             <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Total Profit</CardTitle>
-                <div className="p-2 rounded-lg bg-success/10">
-                  <TrendingUp className="w-5 h-5 text-success" />
+              <CardHeader>
+                <CardTitle>Costos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-medium">
+                  {formatCurrency(salesReport?.total_cost ?? 0)}
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-medium text-success">{formatCurrency(totalProfit)}</div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0}% margin
-              </p>
-            </CardContent>
-          </Card>
-          )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Utilidad</CardTitle>
+                <TrendingUp className="w-5 h-5 text-success" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-medium text-success">
+                  {formatCurrency(salesReport?.total_profit ?? 0)}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Average Ticket</CardTitle>
-                <div className="p-2 rounded-lg bg-accent/10">
-                  <DollarSign className="w-5 h-5 text-accent" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-medium">{formatCurrency(averageTicket)}</div>
-              <p className="text-sm text-muted-foreground mt-1">Per transaction</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Transactions</CardTitle>
-                <div className="p-2 rounded-lg bg-secondary/10">
-                  <Package className="w-5 h-5 text-secondary" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-medium">{filteredSales.length}</div>
-              <p className="text-sm text-muted-foreground mt-1">Total sales</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Ticket promedio</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-medium">
+              {formatCurrency(salesReport?.average_ticket ?? 0)}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Selling Products</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {topProducts.map((item, index) => (
-              <div key={item.product.id} className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-medium text-primary">
-                  {index + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">{item.product.name}</p>
-                  <p className="text-sm text-muted-foreground">{item.quantity} units sold</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">{formatCurrency(item.revenue)}</p>
-                  <p className="text-sm text-muted-foreground">Revenue</p>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Top productos vendidos</CardTitle>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => exportReport("sales", "excel")}>
+                <FileDown className="w-4 h-4" /> Excel
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => exportReport("sales", "pdf")}>
+                <FileDown className="w-4 h-4" /> PDF
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {salesLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin" />
               </div>
-            ))}
-            {topProducts.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No sales in selected period</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2>Inventory Report</h2>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => exportReport("inventory", "excel")}>
-              <FileDown className="w-4 h-4 mr-2" />
-              Exportar a Excel
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => exportReport("inventory", "pdf")}>
-              <FileDown className="w-4 h-4 mr-2" />
-              Exportar a PDF
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {canSeeCosts && (
-            <Card>
-            <CardHeader>
-              <CardTitle>Stock Value Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Current Stock Value</p>
-                  <p className="text-3xl font-medium">{formatCurrency(currentStockValue)}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Total Products</p>
-                    <p className="text-xl font-medium">{store.products.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Total Units</p>
-                    <p className="text-xl font-medium">
-                      {store.products.reduce((sum, p) => sum + p.stock, 0)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Slow Moving Items ({slowMovers.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                {slowMovers.slice(0, 5).map((product) => (
-                  <div key={product.id} className="flex items-center justify-between py-2 border-b border-border">
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-muted-foreground">{product.stock} in stock</p>
+            ) : topProducts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Sin ventas en el período</p>
+            ) : (
+              <>
+                <SalesReportChart
+                  data={topProducts.map((row) => ({
+                    name: row.product_name.slice(0, 18),
+                    revenue: row.revenue,
+                  }))}
+                />
+                <div className="space-y-3 mt-4 border-t pt-4">
+                  {topProducts.map((row) => (
+                    <div key={row.product_id} className="flex justify-between items-center text-sm">
+                      <span>{row.product_name}</span>
+                      <span className="font-medium">{formatCurrency(row.revenue)}</span>
                     </div>
-                    <p className="text-sm text-warning">Low sales</p>
-                  </div>
-                ))}
-                {slowMovers.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">All products moving well</p>
-                )}
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" /> Inventario
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => exportReport("inventory", "excel")}>
+                Excel
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {inventoryLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin" />
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Productos</p>
+                    <p className="text-xl font-medium">{inventoryReport?.total_products ?? 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Unidades</p>
+                    <p className="text-xl font-medium">{inventoryReport?.total_units ?? 0}</p>
+                  </div>
+                </div>
+                {canSeeCosts && (
+                  <p className="text-sm mb-3">
+                    Valor stock: {formatCurrency(inventoryReport?.total_stock_value ?? 0)}
+                  </p>
+                )}
+                <p className="text-sm font-medium mb-2">Baja rotación (muestra)</p>
+                {slowMovers.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">—</p>
+                ) : (
+                  slowMovers.map((r) => (
+                    <p key={r.product_id} className="text-sm text-muted-foreground">
+                      {r.product_name} — stock {r.stock}
+                    </p>
+                  ))
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {salesReport && salesReport.rows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Detalle por producto ({formatDate(dateFrom)} — {formatDate(dateTo)})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Producto</th>
+                    <th className="text-right py-2">Cant.</th>
+                    <th className="text-right py-2">Ingresos</th>
+                    {canSeeCosts && <th className="text-right py-2">Utilidad</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesReport.rows.map((row) => (
+                    <tr key={row.product_id} className="border-b border-border/50">
+                      <td className="py-2">{row.product_name}</td>
+                      <td className="text-right py-2">{row.quantity_sold}</td>
+                      <td className="text-right py-2">{formatCurrency(row.revenue)}</td>
+                      {canSeeCosts && (
+                        <td className="text-right py-2">{formatCurrency(row.profit)}</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

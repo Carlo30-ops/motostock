@@ -1,4 +1,4 @@
-"""add user pin and rbac roles
+﻿"""add user pin and rbac roles
 
 Revision ID: 20260508_02
 Revises: 20260508_01
@@ -12,14 +12,20 @@ import sqlalchemy as sa
 
 
 revision: str = "20260508_02"
-down_revision: Union[str, None] = "20260508_01"
+down_revision: Union[str, None] = "20260508_03"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column("pin_code", sa.String(length=10), nullable=True))
-    op.create_index(op.f("ix_users_pin_code"), "users", ["pin_code"], unique=True)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "users" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("users")}
+    if "pin_code" not in columns:
+        op.add_column("users", sa.Column("pin_code", sa.String(length=10), nullable=True))
+        op.create_index(op.f("ix_users_pin_code"), "users", ["pin_code"], unique=True)
 
     # Normalize old role values to new hierarchy.
     op.execute("UPDATE users SET role = 'supervisor' WHERE role = 'manager'")

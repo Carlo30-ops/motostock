@@ -19,12 +19,19 @@ def get_orders(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
 def create_order(order: schemas.PurchaseOrderCreate, db: Session = Depends(get_db)):
     total = sum(item.unit_cost * item.quantity for item in order.items)
     
+    supplier_name = order.supplier
+    if order.supplier_id:
+        supplier_row = db.query(models.Supplier).filter(models.Supplier.id == order.supplier_id).first()
+        if supplier_row:
+            supplier_name = supplier_row.name
+
     db_order = models.PurchaseOrder(
-        supplier=order.supplier,
+        supplier_id=order.supplier_id,
+        supplier=supplier_name,
         date=order.date,
         total=total,
         notes=order.notes,
-        status=models.OrderStatus.pending
+        status=models.OrderStatus.pending,
     )
     db.add(db_order)
     db.flush()

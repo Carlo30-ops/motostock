@@ -102,7 +102,7 @@ app.add_middleware(LoggingMiddleware)
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -179,10 +179,12 @@ def health_check():
 @app.get("/health/ready")
 def readiness_check():
     """Readiness check para Kubernetes/Docker."""
+    from sqlalchemy import text
+
     try:
         from app.database import engine
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         return {"status": "ready"}
     except Exception:
         return {"status": "not_ready"}, 503
@@ -191,4 +193,6 @@ def readiness_check():
 @app.get("/health/live")
 def liveness_check():
     """Liveness check para Kubernetes/Docker."""
+    from datetime import datetime
+
     return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}

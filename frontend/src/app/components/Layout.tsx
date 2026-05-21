@@ -25,6 +25,7 @@ import { useOfflineSyncStatus } from "../offline/useOfflineSyncStatus";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { hasRoleAccess } from "../lib/rbac";
 import { SessionTimeout } from "./SessionTimeout";
+import { OfflineStatusBar } from "./OfflineStatusBar";
 
 export function Layout() {
   const tabletMode = store((state) => state.tabletMode);
@@ -41,11 +42,11 @@ export function Layout() {
     { path: "/sales", icon: ShoppingCart, label: t("nav.sales"), minRole: "cashier" },
     { path: "/credit", icon: CreditCard, label: t("nav.credit"), minRole: "supervisor" },
     { path: "/clients", icon: Users, label: t("nav.clients"), minRole: "seller" },
-    { path: "/workshop", icon: Wrench, label: "Taller de Servicio", minRole: "seller" },
+    { path: "/workshop", icon: Wrench, label: t("nav.workshop"), minRole: "seller" },
     { path: "/reports", icon: FileText, label: t("nav.reports"), minRole: "supervisor" },
     { path: "/purchase-orders", icon: Truck, label: t("nav.orders"), minRole: "supervisor" },
-    { path: "/suppliers", icon: Briefcase, label: "Proveedores", minRole: "supervisor" },
-    { path: "/profile", icon: UserCircle, label: "Perfil y Seguridad", minRole: "cashier" },
+    { path: "/suppliers", icon: Briefcase, label: t("nav.suppliers"), minRole: "supervisor" },
+    { path: "/profile", icon: UserCircle, label: t("nav.profile"), minRole: "cashier" },
     { path: "/admin/dian-config", icon: Settings, label: "DIAN Config", minRole: "admin" },
   ].filter((item) => hasRoleAccess(role, item.minRole));
 
@@ -174,30 +175,8 @@ export function Layout() {
         </aside>
       )}
 
-      <main className="flex-1 overflow-auto pb-16 md:pb-0">
-        <div className="md:hidden px-3 pt-3">
-          <div className="rounded-lg border border-border bg-card p-2 text-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CloudOff className="w-4 h-4" />
-              <span>{isOnline ? "Online" : "Offline"}</span>
-              <span className="text-muted-foreground">Pendientes: {pendingCount}</span>
-            </div>
-            <button
-              type="button"
-              disabled={!isOnline || isSyncing || pendingCount === 0}
-              onClick={() => {
-                void syncNow();
-              }}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2 py-1 border border-border",
-                !isOnline || isSyncing || pendingCount === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-muted"
-              )}
-            >
-              <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
-              Sync
-            </button>
-          </div>
-        </div>
+      <main className="flex-1 overflow-auto pb-16 md:pb-0 flex flex-col">
+        <OfflineStatusBar />
         <Outlet />
       </main>
 

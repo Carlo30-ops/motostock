@@ -1,10 +1,10 @@
-"""seed data
+﻿"""seed data
 
 Revision ID: 20260508_04
 Revises: 20260508_03
 Create Date: 2026-05-08 14:30:00.000000
 
-Esta migración inserta los datos iniciales del sistema,
+Esta migraci├│n inserta los datos iniciales del sistema,
 reemplazando completamente el seed.sql para mantener consistencia.
 """
 
@@ -18,7 +18,7 @@ from datetime import date, datetime
 
 # revision identifiers, used by Alembic.
 revision: str = "20260508_04"
-down_revision: Union[str, None] = "20260508_03"
+down_revision: Union[str, None] = "20260508_01"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -38,7 +38,7 @@ def upgrade() -> None:
         {
             'username': 'admin',
             'email': 'admin@motostock.com',
-            'hashed_password': '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj6ukx.LFvO.',  # password: admin123
+            'hashed_password': '$2b$12$N4LFGvtmxj0DDRbxGaNMX.y62FRC8hY63p.0xbxMKj8MRsH/c9zR.',  # password: admin123
             'pin_code': '1234',
             'role': 'admin',
             'is_active': True
@@ -46,7 +46,7 @@ def upgrade() -> None:
         {
             'username': 'cashier',
             'email': 'cashier@motostock.com',
-            'hashed_password': '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj6ukx.LFvO.',  # password: cashier123
+            'hashed_password': '$2b$12$CwjDbifmWC4L2ajmzHEWGu0euLpbyULyU7tKNDGtbEWXZ/L27.UBG',  # password: cashier123
             'pin_code': '5678',
             'role': 'cashier',
             'is_active': True
@@ -94,7 +94,7 @@ def upgrade() -> None:
         },
         {
             'code': 'BUJIA001',
-            'name': 'Bujía NGK CR7HSA',
+            'name': 'Buj├¡a NGK CR7HSA',
             'category': 'Encendido',
             'brand': 'NGK',
             'barcode': '7700001003',
@@ -107,7 +107,7 @@ def upgrade() -> None:
         {
             'code': 'CADENA001',
             'name': 'Cadena 428 120 Eslabones',
-            'category': 'Transmisión',
+            'category': 'Transmisi├│n',
             'brand': 'DID',
             'barcode': '7700001004',
             'supplier': 'Motos Parts Ltda',
@@ -146,7 +146,7 @@ def upgrade() -> None:
     op.bulk_insert(clients_table, [
         {
             'document_id': '123456789',
-            'name': 'Juan Pérez',
+            'name': 'Juan P├®rez',
             'email': 'juan.perez@email.com',
             'phone': '3001234567',
             'motorcycle_model': 'Honda CB 150',
@@ -157,7 +157,7 @@ def upgrade() -> None:
         },
         {
             'document_id': '987654321',
-            'name': 'María García',
+            'name': 'Mar├¡a Garc├¡a',
             'email': 'maria.garcia@email.com',
             'phone': '3109876543',
             'motorcycle_model': 'Yamaha YBR 125',
@@ -168,7 +168,7 @@ def upgrade() -> None:
         },
         {
             'document_id': '456789123',
-            'name': 'Carlos Rodríguez',
+            'name': 'Carlos Rodr├¡guez',
             'email': 'carlos.rodriguez@email.com',
             'phone': '3204567890',
             'motorcycle_model': 'Suzuki Gixxer 150',
@@ -187,7 +187,7 @@ def upgrade() -> None:
     
     op.bulk_insert(combos_table, [
         {
-            'name': 'Combo Cambio de Aceite Básico',
+            'name': 'Combo Cambio de Aceite B├ísico',
             'price': 28000.0
         },
         {
@@ -199,7 +199,7 @@ def upgrade() -> None:
     # Obtener IDs de combos para insertar items
     connection = op.get_bind()
     
-    # Insertar combo items para el combo básico (id=1)
+    # Insertar combo items para el combo b├ísico (id=1)
     combo_items_table = table('combo_items',
         column('combo_id', Integer),
         column('product_id', Integer),
@@ -211,7 +211,7 @@ def upgrade() -> None:
         {'combo_id': 1, 'product_id': 2, 'quantity': 1},  # Filtro
         {'combo_id': 2, 'product_id': 1, 'quantity': 1},  # Aceite
         {'combo_id': 2, 'product_id': 2, 'quantity': 1},  # Filtro
-        {'combo_id': 2, 'product_id': 3, 'quantity': 1},  # Bujía
+        {'combo_id': 2, 'product_id': 3, 'quantity': 1},  # Buj├¡a
     ])
 
 

@@ -1,3 +1,6 @@
+/**
+ * Fase 1.2: ruta pública /login y rutas de negocio detrás de ProtectedRoute.
+ */
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
@@ -13,11 +16,22 @@ import { InventoryLabels } from "./pages/InventoryLabels";
 import { Profile } from "./pages/Profile";
 import { Suppliers } from "./pages/Suppliers";
 import { Workshop } from "./pages/Workshop";
+import { Login } from "./pages/Login";
+import { ProtectedRoute } from "./lib/auth-rbac";
+
+function ProtectedLayout() {
+  return (
+    <ProtectedRoute>
+      <Layout />
+    </ProtectedRoute>
+  );
+}
 
 export const router = createBrowserRouter([
+  { path: "/login", Component: Login },
   {
     path: "/",
-    Component: Layout,
+    Component: ProtectedLayout,
     children: [
       { index: true, Component: Dashboard },
       { path: "inventory", Component: Inventory },

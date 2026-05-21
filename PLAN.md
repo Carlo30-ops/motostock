@@ -138,13 +138,14 @@ Objetivo: producto usable en taller real, no solo funcional.
 
 ---
 
-## Fase D — DevOps y entrega (1 semana)
+## Fase D — DevOps y entrega (Completada)
 
 - [x] CI: typecheck + build frontend, alembic + pytest backend
-- [ ] CD staging (Docker Compose o Railway/Fly)
-- [ ] Variables entorno documentadas (`.env.example`)
-- [ ] Healthchecks y backups automáticos verificados
-- [ ] README operativo: primer arranque, usuarios demo, puertos 8080/8000
+- [x] CD staging (docker-compose.prod.yml con Nginx WAF y proxy corregido)
+- [x] Variables entorno documentadas (`.env.example` y `.env.production` saneadas)
+- [x] Healthchecks y backups automáticos verificados (healthcheck de Redis corregido)
+- [x] README operativo: primer arranque, usuarios demo, puertos 8080/8000
+- [x] Guía de despliegue exhaustiva (`DEPLOYMENT.md` generada)
 
 ---
 

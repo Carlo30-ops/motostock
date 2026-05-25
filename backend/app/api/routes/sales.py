@@ -31,15 +31,27 @@ def _assert_money_matches(label: str, expected: float, actual: float):
 
 
 @router.get("/", response_model=list[schemas.SaleOut])
-def get_sales(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
-    return db.query(models.Sale).offset(skip).limit(limit).all()
+def get_sales(
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db), 
+    skip: int = 0, 
+    limit: int = 100
+):
+    return db.query(models.Sale).filter(models.Sale.branch_id == current_user.branch_id).offset(skip).limit(limit).all()
 
 
 @router.post("/", response_model=schemas.SaleOut, status_code=status.HTTP_201_CREATED)
-def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
+def create_sale(
+    sale: schemas.SaleCreate, 
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
     # Check for idempotency if offline_id is provided
     if sale.offline_id:
-        existing_sale = db.query(models.Sale).filter(models.Sale.offline_id == sale.offline_id).first()
+        existing_sale = db.query(models.Sale).filter(
+            models.Sale.offline_id == sale.offline_id,
+            models.Sale.branch_id == current_user.branch_id
+        ).first()
         if existing_sale:
             return existing_sale
 
@@ -52,7 +64,10 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
         if item.quantity <= 0:
             raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a cero")
 
-        product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        product = db.query(models.Product).filter(
+            models.Product.id == item.product_id,
+            models.Product.branch_id == current_user.branch_id
+        ).first()
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
         if product.stock < item.quantity:

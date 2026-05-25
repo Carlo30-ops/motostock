@@ -228,6 +228,7 @@ class SaleCreate(BaseModel):
 class SaleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    branch_id: int
     offline_id: Optional[str] = None
     client_id: Optional[int]
     date: date
@@ -266,6 +267,7 @@ class PurchaseOrderCreate(BaseModel):
 class PurchaseOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    branch_id: int
     supplier: str
     supplier_id: Optional[int] = None
     status: str
@@ -501,6 +503,7 @@ class VehicleUpdate(BaseModel):
 class VehicleOut(VehicleCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    branch_id: int
     created_at: datetime
 
 
@@ -518,6 +521,7 @@ class WorkOrderStatusUpdate(BaseModel):
 class WorkOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    branch_id: int
     vehicle_id: int
     status: str
     scheduled_date: date

@@ -51,11 +51,18 @@ def upgrade() -> None:
     op.drop_index('ix_clients_document_id', table_name='clients')
     op.create_index(op.f('ix_clients_document_id'), 'clients', ['document_id'], unique=True)
     
-    op.alter_column('invoices', 'dian_status',
-               existing_type=postgresql.ENUM('pending', 'accepted', 'rejected', name='dian_status_enum'),
-               type_=sa.Enum('pending', 'accepted', 'rejected', name='dianstatus'),
-               existing_nullable=False,
-               existing_server_default=sa.text("'pending'::dian_status_enum"))
+    # Handle Enum changes manually for PostgreSQL
+    # DianStatus
+    op.execute("ALTER TYPE dian_status_enum RENAME TO dianstatus")
+    
+    # OrderStatus
+    op.execute("ALTER TYPE order_status_enum RENAME TO orderstatus")
+    
+    # PaymentMethod
+    op.execute("ALTER TYPE payment_method_enum RENAME TO paymentmethod")
+    
+    # WorkOrderStatus
+    op.execute("ALTER TYPE work_order_status_enum RENAME TO workorderstatus")
 
     op.drop_constraint('products_barcode_key', 'products', type_='unique')
     op.drop_constraint('products_code_key', 'products', type_='unique')
@@ -69,11 +76,6 @@ def upgrade() -> None:
     
     op.add_column('purchase_orders', sa.Column('total', sa.Float(), nullable=False, server_default='0'))
     
-    op.alter_column('purchase_orders', 'status',
-               existing_type=postgresql.ENUM('pending', 'sent', 'received', name='order_status_enum'),
-               type_=sa.Enum('pending', 'sent', 'received', name='orderstatus'),
-               existing_nullable=False,
-               existing_server_default=sa.text("'pending'::order_status_enum"))
     op.alter_column('purchase_orders', 'notes',
                existing_type=sa.TEXT(),
                nullable=False, server_default='')
@@ -86,11 +88,6 @@ def upgrade() -> None:
     op.drop_index('ix_refresh_tokens_token', table_name='refresh_tokens')
     op.create_index(op.f('ix_refresh_tokens_token'), 'refresh_tokens', ['token'], unique=True)
 
-    op.alter_column('sales', 'payment_method',
-               existing_type=postgresql.ENUM('cash', 'card', 'credit', 'nequi', name='payment_method_enum'),
-               type_=sa.Enum('cash', 'card', 'credit', 'nequi', name='paymentmethod'),
-               existing_nullable=False)
-
     op.drop_constraint('users_email_key', 'users', type_='unique')
     op.drop_constraint('users_pin_code_key', 'users', type_='unique')
     op.drop_constraint('users_username_key', 'users', type_='unique')
@@ -100,16 +97,10 @@ def upgrade() -> None:
     op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
 
     op.create_index(op.f('ix_work_order_services_id'), 'work_order_services', ['id'], unique=False)
-    op.alter_column('work_orders', 'status',
-               existing_type=postgresql.ENUM('scheduled', 'in_progress', 'completed', 'cancelled', name='work_order_status_enum'),
-               type_=sa.Enum('scheduled', 'in_progress', 'completed', 'cancelled', name='workorderstatus'),
-               existing_nullable=False,
-               existing_server_default=sa.text("'scheduled'::work_order_status_enum"))
 
 
 def downgrade() -> None:
     # NOTE: Downgrade is complex due to data migration and enum changes. 
-    # Simplified version that drops what was added.
     tables_to_update = ['users', 'products', 'sales', 'purchase_orders', 'vehicles', 'work_orders']
     for table in tables_to_update:
         op.drop_constraint(f'fk_{table}_branch_id', table, type_='foreignkey')
@@ -120,6 +111,9 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_branches_id'), table_name='branches')
     op.drop_table('branches')
     
-    # Rest of downgrades for columns and constraints would go here but 
-    # given the scope and safety, we focus on the upgrade path.
+    # Revert Enum names
+    op.execute("ALTER TYPE dianstatus RENAME TO dian_status_enum")
+    op.execute("ALTER TYPE orderstatus RENAME TO order_status_enum")
+    op.execute("ALTER TYPE paymentmethod RENAME TO payment_method_enum")
+    op.execute("ALTER TYPE workorderstatus RENAME TO work_order_status_enum")
     pass

@@ -34,8 +34,16 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)
 
 
 @router.put("/{product_id}", response_model=schemas.ProductOut)
-def update_product(product_id: int, product: schemas.ProductUpdate, db: Session = Depends(get_db)):
-    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+def update_product(
+    product_id: int, 
+    product: schemas.ProductUpdate, 
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
+    db_product = db.query(models.Product).filter(
+        models.Product.id == product_id,
+        models.Product.branch_id == current_user.branch_id
+    ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
     
@@ -49,8 +57,15 @@ def update_product(product_id: int, product: schemas.ProductUpdate, db: Session 
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+def delete_product(
+    product_id: int, 
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
+    db_product = db.query(models.Product).filter(
+        models.Product.id == product_id,
+        models.Product.branch_id == current_user.branch_id
+    ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
     
@@ -101,6 +116,13 @@ def get_barcode_image(product_id: int, db: Session = Depends(get_db)):
 def bulk_generate_barcodes(db: Session = Depends(get_db)):
     products_without_barcode = db.query(models.Product).filter(models.Product.barcode == None).all()
     
+    for p in products_without_barcode:
+        p.barcode = _generate_ean13_from_id(p.id)
+        
+    db.commit()
+    return products_without_barcode
+
+  
     for p in products_without_barcode:
         p.barcode = _generate_ean13_from_id(p.id)
         

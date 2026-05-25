@@ -123,6 +123,7 @@ interface StoreState {
 const initialProducts: Product[] = [
     {
       id: "1",
+      branchId: 1,
       name: "Motul 7100 10W-40 Engine Oil",
       category: "Oil & Lubricants",
       brand: "Motul",
@@ -134,6 +135,7 @@ const initialProducts: Product[] = [
     },
     {
       id: "2",
+      branchId: 1,
       name: "NGK Iridium Spark Plug",
       category: "Ignition",
       brand: "NGK",
@@ -145,6 +147,7 @@ const initialProducts: Product[] = [
     },
     {
       id: "3",
+      branchId: 1,
       name: "EBC Brake Pads - Front",
       category: "Brakes",
       brand: "EBC",
@@ -156,6 +159,7 @@ const initialProducts: Product[] = [
     },
     {
       id: "4",
+      branchId: 1,
       name: "K&N Air Filter",
       category: "Air Intake",
       brand: "K&N",
@@ -167,6 +171,7 @@ const initialProducts: Product[] = [
     },
     {
       id: "5",
+      branchId: 1,
       name: "DID Chain Kit 520",
       category: "Drive Train",
       brand: "DID",
@@ -178,6 +183,7 @@ const initialProducts: Product[] = [
     },
     {
       id: "6",
+      branchId: 1,
       name: "Michelin Pilot Road 5 Rear Tire",
       category: "Tires",
       brand: "Michelin",
@@ -237,6 +243,7 @@ const initialClients: Client[] = [
 const initialSales: Sale[] = [
     {
       id: "s1",
+      branchId: 1,
       date: "2026-05-07",
       items: [{ productId: "1", quantity: 2, price: 42.99 }],
       total: 85.98,
@@ -245,6 +252,7 @@ const initialSales: Sale[] = [
     },
     {
       id: "s2",
+      branchId: 1,
       date: "2026-05-06",
       items: [
         { productId: "4", quantity: 1, price: 55.99 },
@@ -255,6 +263,7 @@ const initialSales: Sale[] = [
     },
     {
       id: "s3",
+      branchId: 1,
       date: "2026-05-05",
       items: [{ productId: "5", quantity: 1, price: 189.99 }],
       total: 189.99,
@@ -289,6 +298,7 @@ const initialSuppliers: Supplier[] = [
 const initialVehicles: Vehicle[] = [
   {
     id: "v1",
+    branchId: 1,
     clientId: "1",
     brand: "Yamaha",
     model: "MT-09",
@@ -317,6 +327,7 @@ const initialServiceTemplates: ServiceTemplate[] = [
 const initialWorkOrders: WorkOrder[] = [
   {
     id: "wo1",
+    branchId: 1,
     vehicleId: "v1",
     status: "in_progress",
     scheduledDate: new Date().toISOString().split("T")[0] as string,
@@ -328,6 +339,7 @@ const initialWorkOrders: WorkOrder[] = [
 const initialPurchaseOrders: PurchaseOrder[] = [
     {
       id: "po1",
+      branchId: 1,
       supplierId: "sup1",
       items: [{ productId: "1", quantity: 24, cost: 28.50 }],
       status: "sent",
@@ -336,6 +348,7 @@ const initialPurchaseOrders: PurchaseOrder[] = [
     },
     {
       id: "po2",
+      branchId: 1,
       supplierId: "sup2",
       items: [
         { productId: "3", quantity: 10, cost: 42.00 },

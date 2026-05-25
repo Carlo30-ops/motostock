@@ -529,6 +529,7 @@ export interface SyncBatchPayload {
 
 export interface CurrentUser {
   id: number;
+  branch_id: number;
   username: string;
   email: string;
   role: string;

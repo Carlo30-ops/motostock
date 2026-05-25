@@ -152,7 +152,7 @@ class RefreshTokenService:
 def create_user_tokens(user: User, db: Session) -> Dict[str, Any]:
     """Crea access y refresh tokens para un usuario"""
     access_token = RefreshTokenService.create_access_token(
-        data={"sub": user.username, "user_id": user.id, "role": user.role}
+        data={"sub": user.username, "user_id": user.id, "role": user.role, "branch_id": user.branch_id}
     )
     refresh_token = RefreshTokenService.create_refresh_token(user.id, db)
     
@@ -165,7 +165,8 @@ def create_user_tokens(user: User, db: Session) -> Dict[str, Any]:
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "role": user.role
+            "role": user.role,
+            "branch_id": user.branch_id
         }
     }
 
@@ -205,3 +206,5 @@ def update_refresh_token_usage(token: str, db: Session):
     if db_token:
         db_token.last_used_at = datetime.now(timezone.utc)
         db.commit()
+t()
+  db.commit()

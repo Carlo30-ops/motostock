@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.database import get_db
-from app.services.auth import require_minimum_role
+from app.services.auth import require_minimum_role, get_current_active_user
 
 router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
 
@@ -11,6 +11,7 @@ router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
 def _work_order_out(order: models.WorkOrder) -> schemas.WorkOrderOut:
     return schemas.WorkOrderOut(
         id=order.id,
+        branch_id=order.branch_id,
         vehicle_id=order.vehicle_id,
         status=order.status.value if hasattr(order.status, "value") else str(order.status),
         scheduled_date=order.scheduled_date,
@@ -32,19 +33,27 @@ def list_service_templates(db: Session = Depends(get_db)):
 
 
 @router.get("/vehicles", response_model=list[schemas.VehicleOut])
-def list_vehicles(db: Session = Depends(get_db), client_id: int | None = None):
-    query = db.query(models.Vehicle)
+def list_vehicles(
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db), 
+    client_id: int | None = None
+):
+    query = db.query(models.Vehicle).filter(models.Vehicle.branch_id == current_user.branch_id)
     if client_id is not None:
         query = query.filter(models.Vehicle.client_id == client_id)
     return query.order_by(models.Vehicle.plate).all()
 
 
 @router.post("/vehicles", response_model=schemas.VehicleOut, status_code=status.HTTP_201_CREATED)
-def create_vehicle(payload: schemas.VehicleCreate, db: Session = Depends(get_db)):
+def create_vehicle(
+    payload: schemas.VehicleCreate, 
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
     client = db.query(models.Client).filter(models.Client.id == payload.client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    db_vehicle = models.Vehicle(**payload.model_dump())
+    db_vehicle = models.Vehicle(**payload.model_dump(), branch_id=current_user.branch_id)
     db.add(db_vehicle)
     db.commit()
     db.refresh(db_vehicle)
@@ -55,9 +64,13 @@ def create_vehicle(payload: schemas.VehicleCreate, db: Session = Depends(get_db)
 def update_vehicle(
     vehicle_id: int,
     payload: schemas.VehicleUpdate,
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
     db: Session = Depends(get_db),
 ):
-    db_vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == vehicle_id).first()
+    db_vehicle = db.query(models.Vehicle).filter(
+        models.Vehicle.id == vehicle_id,
+        models.Vehicle.branch_id == current_user.branch_id
+    ).first()
     if not db_vehicle:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -68,9 +81,13 @@ def update_vehicle(
 
 
 @router.get("/work-orders", response_model=list[schemas.WorkOrderOut])
-def list_work_orders(db: Session = Depends(get_db)):
+def list_work_orders(
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
     orders = (
         db.query(models.WorkOrder)
+        .filter(models.WorkOrder.branch_id == current_user.branch_id)
         .options(joinedload(models.WorkOrder.services))
         .order_by(models.WorkOrder.scheduled_date.desc())
         .all()
@@ -79,12 +96,20 @@ def list_work_orders(db: Session = Depends(get_db)):
 
 
 @router.post("/work-orders", response_model=schemas.WorkOrderOut, status_code=status.HTTP_201_CREATED)
-def create_work_order(payload: schemas.WorkOrderCreate, db: Session = Depends(get_db)):
-    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == payload.vehicle_id).first()
+def create_work_order(
+    payload: schemas.WorkOrderCreate, 
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
+    vehicle = db.query(models.Vehicle).filter(
+        models.Vehicle.id == payload.vehicle_id,
+        models.Vehicle.branch_id == current_user.branch_id
+    ).first()
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehículo no encontrado")
 
     db_order = models.WorkOrder(
+        branch_id=current_user.branch_id,
         vehicle_id=payload.vehicle_id,
         scheduled_date=payload.scheduled_date,
         notes=payload.notes,
@@ -123,12 +148,16 @@ def create_work_order(payload: schemas.WorkOrderCreate, db: Session = Depends(ge
 def update_work_order_status(
     order_id: int,
     payload: schemas.WorkOrderStatusUpdate,
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
     db: Session = Depends(get_db),
 ):
     db_order = (
         db.query(models.WorkOrder)
         .options(joinedload(models.WorkOrder.services))
-        .filter(models.WorkOrder.id == order_id)
+        .filter(
+            models.WorkOrder.id == order_id,
+            models.WorkOrder.branch_id == current_user.branch_id
+        )
         .first()
     )
     if not db_order:

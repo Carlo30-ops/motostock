@@ -1,14 +1,26 @@
-"""Alembic revision script template."""
+"""${message}
+
+Revision ID: ${up_revision}
+Revises: ${down_revision | comma,n}
+Create Date: ${create_date}
+
+"""
+from typing import Sequence, Optional
+
+from alembic import op
 import sqlalchemy as sa
+${imports if imports else ""}
 
 # revision identifiers, used by Alembic.
-revision = "template"
-down_revision = None
-branch_labels = None
-depends_on = None
+revision: str = ${repr(up_revision)}
+down_revision: Optional[str] = ${repr(down_revision)}
+branch_labels: Optional[Sequence[str]] = ${repr(branch_labels)}
+depends_on: Optional[Sequence[str]] = ${repr(depends_on)}
+
 
 def upgrade() -> None:
-    pass
+    ${upgrades if upgrades else "pass"}
+
 
 def downgrade() -> None:
-    pass
+    ${downgrades if downgrades else "pass"}

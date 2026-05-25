@@ -43,12 +43,33 @@ class DianStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+# ─── Branch ───────────────────────────────────────────────────────────────────
+
+class Branch(Base):
+    __tablename__ = "branches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    users: Mapped[list["User"]] = relationship(back_populates="branch")
+    products: Mapped[list["Product"]] = relationship(back_populates="branch")
+    sales: Mapped[list["Sale"]] = relationship(back_populates="branch")
+    purchase_orders: Mapped[list["PurchaseOrder"]] = relationship(back_populates="branch")
+    vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="branch")
+    work_orders: Mapped[list["WorkOrder"]] = relationship(back_populates="branch")
+
+
 # ─── User (auth) ──────────────────────────────────────────────────────────────
 
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -61,6 +82,8 @@ class User(Base):
     totp_enabled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    branch: Mapped["Branch"] = relationship(back_populates="users")
+
 
 # ─── Product / Inventory ──────────────────────────────────────────────────────
 
@@ -68,11 +91,12 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     brand: Mapped[str] = mapped_column(String(100), nullable=False)
-    barcode: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True)
+    barcode: Mapped[Optional[str]] = mapped_column(String(50), index=True, nullable=True)
     supplier: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     stock: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     sale_price: Mapped[float] = mapped_column(Float, nullable=False)
@@ -81,6 +105,7 @@ class Product(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    branch: Mapped["Branch"] = relationship(back_populates="products")
     sale_items: Mapped[list["SaleItem"]] = relationship(back_populates="product")
     order_items: Mapped[list["PurchaseOrderItem"]] = relationship(back_populates="product")
     combo_items: Mapped[list["ComboItem"]] = relationship(back_populates="product")
@@ -117,9 +142,9 @@ class Client(Base):
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    document_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True) # NIT/CC para DIAN
+    document_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
-    email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True) # Email para factura electrónica
+    email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone: Mapped[str] = mapped_column(String(30), nullable=False)
     motorcycle_model: Mapped[str] = mapped_column(String(150), nullable=False)
     last_service_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -147,7 +172,7 @@ class CreditLedger(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    amount: Mapped[float] = mapped_column(Float, nullable=False)          # positive = add, negative = deduct
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
     description: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -160,6 +185,7 @@ class Sale(Base):
     __tablename__ = "sales"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     offline_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True)
     client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id"), nullable=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -169,6 +195,7 @@ class Sale(Base):
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    branch: Mapped["Branch"] = relationship(back_populates="sales")
     client: Mapped[Optional["Client"]] = relationship(back_populates="sales")
     items: Mapped[list["SaleItem"]] = relationship(back_populates="sale", cascade="all, delete-orphan")
 
@@ -209,6 +236,7 @@ class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     supplier_id: Mapped[Optional[int]] = mapped_column(ForeignKey("suppliers.id"), nullable=True)
     supplier: Mapped[str] = mapped_column(String(150), nullable=False)
     status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.pending, nullable=False)
@@ -217,6 +245,7 @@ class PurchaseOrder(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    branch: Mapped["Branch"] = relationship(back_populates="purchase_orders")
     items: Mapped[list["PurchaseOrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
 
 
@@ -289,6 +318,7 @@ class Vehicle(Base):
     __tablename__ = "vehicles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False, index=True)
     brand: Mapped[str] = mapped_column(String(100), nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -296,6 +326,7 @@ class Vehicle(Base):
     plate: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    branch: Mapped["Branch"] = relationship(back_populates="vehicles")
     client: Mapped["Client"] = relationship(back_populates="vehicles")
     work_orders: Mapped[list["WorkOrder"]] = relationship(back_populates="vehicle", cascade="all, delete-orphan")
 
@@ -304,6 +335,7 @@ class WorkOrder(Base):
     __tablename__ = "work_orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id"), nullable=False)
     status: Mapped[WorkOrderStatus] = mapped_column(
         Enum(WorkOrderStatus), default=WorkOrderStatus.scheduled, nullable=False
@@ -315,6 +347,7 @@ class WorkOrder(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    branch: Mapped["Branch"] = relationship(back_populates="work_orders")
     vehicle: Mapped["Vehicle"] = relationship(back_populates="work_orders")
     services: Mapped[list["WorkOrderService"]] = relationship(
         back_populates="work_order", cascade="all, delete-orphan"

@@ -89,6 +89,183 @@ def test_sale_reduces_stock(client: TestClient, auth_headers: dict):
     client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
 
 
+def test_sale_rejects_tampered_price(client: TestClient, auth_headers: dict):
+    suffix = uuid.uuid4().hex[:8]
+    product = client.post(
+        "/api/inventory/",
+        headers=auth_headers,
+        json={
+            "code": f"TAMPER-{suffix}",
+            "name": f"Manipulado QA {suffix}",
+            "category": "repuestos",
+            "brand": "Test",
+            "stock": 10,
+            "sale_price": 30000,
+            "cost_price": 15000,
+        },
+    )
+    assert product.status_code == 201
+    product_id = product.json()["id"]
+
+    sale = client.post(
+        "/api/sales/",
+        headers=auth_headers,
+        json={
+            "date": str(date.today()),
+            "items": [{"product_id": product_id, "quantity": 1, "unit_price": 1}],
+            "discount_pct": 0,
+            "payment_method": "cash",
+            "expected_total": 1,
+        },
+    )
+    assert sale.status_code == 400
+    assert "Precio del producto" in sale.json()["detail"]
+
+    client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
+
+
+def test_sale_rejects_tampered_total(client: TestClient, auth_headers: dict):
+    suffix = uuid.uuid4().hex[:8]
+    product = client.post(
+        "/api/inventory/",
+        headers=auth_headers,
+        json={
+            "code": f"TOTAL-{suffix}",
+            "name": f"Total QA {suffix}",
+            "category": "repuestos",
+            "brand": "Test",
+            "stock": 10,
+            "sale_price": 20000,
+            "cost_price": 10000,
+        },
+    )
+    assert product.status_code == 201
+    product_id = product.json()["id"]
+
+    sale = client.post(
+        "/api/sales/",
+        headers=auth_headers,
+        json={
+            "date": str(date.today()),
+            "items": [{"product_id": product_id, "quantity": 2, "unit_price": 20000}],
+            "discount_pct": 0,
+            "payment_method": "cash",
+            "expected_total": 1,
+        },
+    )
+    assert sale.status_code == 400
+    assert "Total de la venta" in sale.json()["detail"]
+
+    client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
+
+
+def test_credit_sale_deducts_available_credit(client: TestClient, auth_headers: dict):
+    suffix = uuid.uuid4().hex[:8]
+    created_client = client.post(
+        "/api/clients/",
+        headers=auth_headers,
+        json={
+            "name": f"Credito QA {suffix}",
+            "phone": "3000000000",
+            "motorcycle_model": "Test Bike",
+            "credit_limit": 500000,
+            "credit_balance": 50000,
+        },
+    )
+    assert created_client.status_code == 201, created_client.text
+    client_id = created_client.json()["id"]
+
+    product = client.post(
+        "/api/inventory/",
+        headers=auth_headers,
+        json={
+            "code": f"CREDIT-{suffix}",
+            "name": f"Credito producto {suffix}",
+            "category": "repuestos",
+            "brand": "Test",
+            "stock": 10,
+            "sale_price": 10000,
+            "cost_price": 5000,
+        },
+    )
+    assert product.status_code == 201
+    product_id = product.json()["id"]
+
+    sale = client.post(
+        "/api/sales/",
+        headers=auth_headers,
+        json={
+            "client_id": client_id,
+            "date": str(date.today()),
+            "items": [{"product_id": product_id, "quantity": 2, "unit_price": 10000}],
+            "discount_pct": 0,
+            "payment_method": "credit",
+            "expected_total": 20000,
+        },
+    )
+    assert sale.status_code == 201, sale.text
+    assert sale.json()["total"] == 20000
+
+    updated_clients = client.get("/api/clients/", headers=auth_headers)
+    row = next(c for c in updated_clients.json() if c["id"] == client_id)
+    assert row["credit_balance"] == 30000
+
+    ledger = client.get(f"/api/clients/{client_id}/ledger", headers=auth_headers)
+    assert any(e["amount"] == -20000 for e in ledger.json())
+
+    client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
+
+
+def test_credit_sale_rejects_insufficient_available_credit(client: TestClient, auth_headers: dict):
+    suffix = uuid.uuid4().hex[:8]
+    created_client = client.post(
+        "/api/clients/",
+        headers=auth_headers,
+        json={
+            "name": f"Sin cupo QA {suffix}",
+            "phone": "3000000000",
+            "motorcycle_model": "Test Bike",
+            "credit_limit": 500000,
+            "credit_balance": 5000,
+        },
+    )
+    assert created_client.status_code == 201, created_client.text
+    client_id = created_client.json()["id"]
+
+    product = client.post(
+        "/api/inventory/",
+        headers=auth_headers,
+        json={
+            "code": f"NO-CREDIT-{suffix}",
+            "name": f"Sin cupo producto {suffix}",
+            "category": "repuestos",
+            "brand": "Test",
+            "stock": 10,
+            "sale_price": 10000,
+            "cost_price": 5000,
+        },
+    )
+    assert product.status_code == 201
+    product_id = product.json()["id"]
+
+    sale = client.post(
+        "/api/sales/",
+        headers=auth_headers,
+        json={
+            "client_id": client_id,
+            "date": str(date.today()),
+            "items": [{"product_id": product_id, "quantity": 1, "unit_price": 10000}],
+            "discount_pct": 0,
+            "payment_method": "credit",
+            "expected_total": 10000,
+        },
+    )
+    assert sale.status_code == 400
+    assert "Cupo de credito insuficiente" in sale.json()["detail"]
+
+    client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
+
+
 def test_client_ledger_adjustment(client: TestClient, auth_headers: dict):
     clients = client.get("/api/clients/", headers=auth_headers)
     assert clients.status_code == 200
@@ -112,3 +289,53 @@ def test_client_ledger_adjustment(client: TestClient, auth_headers: dict):
     updated_clients = client.get("/api/clients/", headers=auth_headers)
     row = next(c for c in updated_clients.json() if c["id"] == client_id)
     assert row["credit_balance"] == before_balance + 15000
+
+
+def test_client_ledger_cannot_make_available_credit_negative(client: TestClient, auth_headers: dict):
+    suffix = uuid.uuid4().hex[:8]
+    created_client = client.post(
+        "/api/clients/",
+        headers=auth_headers,
+        json={
+            "name": f"Ajuste negativo QA {suffix}",
+            "phone": "3000000000",
+            "motorcycle_model": "Test Bike",
+            "credit_limit": 500000,
+            "credit_balance": 10000,
+        },
+    )
+    assert created_client.status_code == 201, created_client.text
+    client_id = created_client.json()["id"]
+
+    entry = client.post(
+        f"/api/clients/{client_id}/ledger",
+        headers=auth_headers,
+        json={"amount": -15000, "description": "Ajuste negativo test pytest"},
+    )
+    assert entry.status_code == 400
+    assert "no puede quedar negativo" in entry.json()["detail"]
+
+
+def test_client_ledger_cannot_exceed_credit_limit(client: TestClient, auth_headers: dict):
+    suffix = uuid.uuid4().hex[:8]
+    created_client = client.post(
+        "/api/clients/",
+        headers=auth_headers,
+        json={
+            "name": f"Ajuste maximo QA {suffix}",
+            "phone": "3000000000",
+            "motorcycle_model": "Test Bike",
+            "credit_limit": 500000,
+            "credit_balance": 490000,
+        },
+    )
+    assert created_client.status_code == 201, created_client.text
+    client_id = created_client.json()["id"]
+
+    entry = client.post(
+        f"/api/clients/{client_id}/ledger",
+        headers=auth_headers,
+        json={"amount": 20000, "description": "Ajuste sobre limite test pytest"},
+    )
+    assert entry.status_code == 400
+    assert "cupo maximo" in entry.json()["detail"]

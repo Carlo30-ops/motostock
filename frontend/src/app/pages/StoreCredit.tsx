@@ -1,5 +1,5 @@
 /**
- * Crédito en tienda — saldos y ledger vía API.
+ * Crédito en tienda: cupo disponible y ledger vía API.
  */
 import { useState, useMemo } from "react";
 import { CreditCard, Plus, Minus, Loader2 } from "lucide-react";
@@ -55,8 +55,12 @@ export function StoreCredit() {
     if (!selectedClient || creditAmount <= 0) return;
 
     const amount = isAdding ? creditAmount : -creditAmount;
+    if (isAdding && selectedClient.creditBalance + creditAmount > selectedClient.creditLimit) {
+      toast.error("No puedes recargar por encima del cupo máximo");
+      return;
+    }
     if (!isAdding && selectedClient.creditBalance < creditAmount) {
-      toast.error("No puedes descontar más del saldo disponible");
+      toast.error("No puedes descontar más del cupo disponible");
       return;
     }
 
@@ -65,12 +69,12 @@ export function StoreCredit() {
         id: selectedClient.id,
         data: {
           amount,
-          description: isAdding ? "Abono manual de crédito" : "Ajuste / descuento de crédito",
+          description: isAdding ? "Recarga manual de cupo" : "Ajuste / descuento de cupo",
         },
       },
       {
         onSuccess: () => {
-          toast.success(isAdding ? "Crédito añadido" : "Crédito descontado");
+          toast.success(isAdding ? "Cupo recargado" : "Cupo descontado");
           setShowModal(false);
           setCreditAmount(0);
         },
@@ -83,7 +87,7 @@ export function StoreCredit() {
     () => clients.filter((c) => c.creditBalance > 0),
     [clients]
   );
-  const totalCreditOutstanding = useMemo(
+  const totalAvailableCredit = useMemo(
     () => clients.reduce((sum, c) => sum + c.creditBalance, 0),
     [clients]
   );
@@ -100,21 +104,21 @@ export function StoreCredit() {
     <div className="p-4 md:p-8 space-y-6">
       <div>
         <h1>Crédito en tienda</h1>
-        <p className="text-muted-foreground mt-1">Saldos de clientes y movimientos de crédito</p>
+        <p className="text-muted-foreground mt-1">Cupo disponible de clientes y movimientos de crédito</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Total por cobrar</CardTitle>
+            <CardTitle>Cupo disponible total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-medium">{formatCurrency(totalCreditOutstanding)}</div>
+            <div className="text-2xl font-medium">{formatCurrency(totalAvailableCredit)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Clientes con crédito</CardTitle>
+            <CardTitle>Clientes con cupo</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-medium">{clientsWithCredit.length}</div>
@@ -133,7 +137,7 @@ export function StoreCredit() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5" /> Saldos de clientes
+            <CreditCard className="w-5 h-5" /> Cupo disponible de clientes
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -148,7 +152,8 @@ export function StoreCredit() {
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-2">Cliente</th>
                     <th className="text-left py-3 px-2">Teléfono</th>
-                    <th className="text-right py-3 px-2">Saldo</th>
+                    <th className="text-right py-3 px-2">Cupo disponible</th>
+                    <th className="text-right py-3 px-2">Cupo máximo</th>
                     <th className="text-right py-3 px-2">Acciones</th>
                   </tr>
                 </thead>
@@ -161,6 +166,9 @@ export function StoreCredit() {
                         <Badge variant={client.creditBalance > 0 ? "warning" : "secondary"}>
                           {formatCurrency(client.creditBalance)}
                         </Badge>
+                      </td>
+                      <td className="py-3 px-2 text-right text-muted-foreground">
+                        {formatCurrency(client.creditLimit)}
                       </td>
                       <td className="py-3 px-2 text-right space-x-2">
                         <Button size="sm" variant="outline" onClick={() => openAddCredit(client)}>
@@ -213,12 +221,12 @@ export function StoreCredit() {
       <Modal
         open={showModal}
         onOpenChange={setShowModal}
-        title={isAdding ? "Añadir crédito" : "Descontar crédito"}
+        title={isAdding ? "Recargar cupo" : "Descontar cupo"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {selectedClient && (
             <p className="text-sm text-muted-foreground">
-              Cliente: <strong>{selectedClient.name}</strong> — Saldo actual:{" "}
+              Cliente: <strong>{selectedClient.name}</strong> — Cupo disponible:{" "}
               {formatCurrency(selectedClient.creditBalance)}
             </p>
           )}
@@ -230,7 +238,7 @@ export function StoreCredit() {
               step="1000"
               required
               value={creditAmount || ""}
-              onChange={(e) => setCreditAmount(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreditAmount(Number(e.target.value))}
             />
           </div>
           <div className="flex gap-2">

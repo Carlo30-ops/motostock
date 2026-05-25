@@ -307,7 +307,7 @@ export function Workshop() {
               required
               className="w-full p-2 border border-input rounded-lg bg-input-background"
               value={vehicleForm.clientId}
-              onChange={(e) => setVehicleForm({ ...vehicleForm, clientId: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setVehicleForm({ ...vehicleForm, clientId: e.target.value })}
             >
               <option value="">Seleccione un cliente...</option>
               {clients.map((c) => (

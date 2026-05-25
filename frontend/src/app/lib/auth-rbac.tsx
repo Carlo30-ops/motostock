@@ -217,11 +217,10 @@ export function useAuth() {
     canAccessRoute,
     getRoleDisplayName,
     getRoleColor,
-    logout: () => {
-      import("../api/client").then(({ clearAuthTokens }) => {
-        clearAuthTokens();
-        window.location.href = "/login";
-      });
+    logout: async () => {
+      const { logoutSession } = await import("../api/client");
+      await logoutSession();
+      window.location.href = "/login";
     },
   };
 }

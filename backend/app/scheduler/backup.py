@@ -12,9 +12,11 @@ from app.database import SessionLocal
 from app.models import Product, Client, Sale, PurchaseOrder, Combo
 from app.config import settings
 from app.schemas import ProductOut, ClientOut, SaleOut, PurchaseOrderOut, ComboOut
+from app.logging_config import get_logger
 
 BACKUP_DIR = Path(__file__).parent.parent.parent / "backups"
 BACKUP_DIR.mkdir(exist_ok=True)
+logger = get_logger("backups")
 
 
 def cleanup_old_backups():
@@ -66,7 +68,7 @@ def perform_backup():
         data = {
             "timestamp": datetime.now().isoformat(),
             "products": [ProductOut.model_validate(p).model_dump(mode='json') for p in db.query(Product).all()],
-            "clients": [ClientOut.model_validate(c).model_dump(mode='json') for p in db.query(Client).all()],
+            "clients": [ClientOut.model_validate(client).model_dump(mode='json') for client in db.query(Client).all()],
             "sales": [SaleOut.model_validate(s).model_dump(mode='json') for s in db.query(Sale).all()],
             "orders": [PurchaseOrderOut.model_validate(o).model_dump(mode='json') for o in db.query(PurchaseOrder).all()],
             "combos": [ComboOut.model_validate(c).model_dump(mode='json') for c in db.query(Combo).all()]
@@ -81,7 +83,13 @@ def perform_backup():
         send_backup_email(str(filepath), timestamp)
         
     except Exception as e:
-        print(f"[Backup Error] Failed to generate backup: {e}")
+        logger.error(
+            "Backup generation failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
+        raise
     finally:
         db.close()
 

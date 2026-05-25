@@ -11,6 +11,24 @@ from app.services.auth import require_minimum_role
 
 router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
 
+MONEY_TOLERANCE = 0.01
+
+
+def _money(value: float) -> float:
+    return round(value + 1e-9, 2)
+
+
+def _volume_discount_multiplier(quantity: int) -> float:
+    return 0.9 if quantity >= 5 else 1.0
+
+
+def _assert_money_matches(label: str, expected: float, actual: float):
+    if abs(_money(expected) - _money(actual)) > MONEY_TOLERANCE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} no coincide con el calculo del servidor. Esperado: {_money(actual)}",
+        )
+
 
 @router.get("/", response_model=list[schemas.SaleOut])
 def get_sales(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
@@ -19,13 +37,62 @@ def get_sales(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
 
 @router.post("/", response_model=schemas.SaleOut, status_code=status.HTTP_201_CREATED)
 def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
-    # Calculate subtotal and total
-    subtotal = sum(item.unit_price * item.quantity for item in sale.items)
-    discount_amount = (subtotal * sale.discount_pct) / 100
-    total = subtotal - discount_amount
+    # Check for idempotency if offline_id is provided
+    if sale.offline_id:
+        existing_sale = db.query(models.Sale).filter(models.Sale.offline_id == sale.offline_id).first()
+        if existing_sale:
+            return existing_sale
+
+    if not sale.items:
+        raise HTTPException(status_code=400, detail="La venta debe tener al menos un producto")
+
+    calculated_items: list[tuple[schemas.SaleItemIn, models.Product, float]] = []
+    subtotal = 0.0
+    for item in sale.items:
+        if item.quantity <= 0:
+            raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a cero")
+
+        product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
+        if product.stock < item.quantity:
+            raise HTTPException(status_code=400, detail=f"Not enough stock for {product.name}")
+
+        expected_unit_price = _money(product.sale_price * _volume_discount_multiplier(item.quantity))
+        _assert_money_matches(
+            f"Precio del producto {product.id}",
+            item.unit_price,
+            expected_unit_price,
+        )
+        subtotal += expected_unit_price * item.quantity
+        calculated_items.append((item, product, expected_unit_price))
+
+    subtotal = _money(subtotal)
+    discount_amount = _money((subtotal * sale.discount_pct) / 100)
+    total = _money(subtotal - discount_amount)
+
+    if sale.expected_total is not None:
+        _assert_money_matches("Total de la venta", sale.expected_total, total)
+
+    client = None
+    if sale.payment_method == "credit":
+        if not sale.client_id:
+            raise HTTPException(status_code=400, detail="Client ID required for credit payment")
+        client = db.query(models.Client).filter(models.Client.id == sale.client_id).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        if client.credit_balance < total:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Cupo de credito insuficiente. "
+                    f"Disponible: {_money(client.credit_balance)}, requerido: {total}"
+                ),
+            )
 
     # Create sale record
     db_sale = models.Sale(
+        offline_id=sale.offline_id,
         client_id=sale.client_id,
         date=sale.date,
         subtotal=subtotal,
@@ -37,13 +104,7 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
     db.flush() # Get ID for items
 
     # Create items and update stock
-    for item in sale.items:
-        product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
-        if product.stock < item.quantity:
-            raise HTTPException(status_code=400, detail=f"Not enough stock for {product.name}")
-            
+    for item, product, unit_price in calculated_items:
         product.stock -= item.quantity
         
         # Automation 1: Auto-generate draft purchase order if stock hits 0
@@ -102,23 +163,17 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
             sale_id=db_sale.id,
             product_id=item.product_id,
             quantity=item.quantity,
-            unit_price=item.unit_price
+            unit_price=unit_price
         )
         db.add(db_item)
 
-    # Handle store credit
+    # Handle store credit as available credit limit.
     if sale.payment_method == "credit":
-        if not sale.client_id:
-            raise HTTPException(status_code=400, detail="Client ID required for credit payment")
-        client = db.query(models.Client).filter(models.Client.id == sale.client_id).first()
-        if not client:
-            raise HTTPException(status_code=404, detail="Client not found")
-        
-        client.credit_balance += total
+        client.credit_balance = _money(client.credit_balance - total)
         
         ledger_entry = models.CreditLedger(
             client_id=client.id,
-            amount=total,
+            amount=-total,
             description=f"Sale #{db_sale.id}"
         )
         db.add(ledger_entry)

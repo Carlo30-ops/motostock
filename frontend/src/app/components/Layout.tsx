@@ -16,6 +16,7 @@ import {
   UserCircle,
   Briefcase,
   Wrench,
+  LogOut,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useLanguage } from "../lib/i18n";
@@ -26,11 +27,13 @@ import { useCurrentUser } from "../hooks/useCurrentUser";
 import { hasRoleAccess } from "../lib/rbac";
 import { SessionTimeout } from "./SessionTimeout";
 import { OfflineStatusBar } from "./OfflineStatusBar";
+import { useAuth } from "../lib/auth-refresh-client";
 
 export function Layout() {
   const tabletMode = store((state) => state.tabletMode);
   const location = useLocation();
   const { t } = useLanguage();
+  const { logout } = useAuth();
   const { data: currentUser } = useCurrentUser();
   const role = currentUser?.role;
   const [showQueueDetails, setShowQueueDetails] = useState(false);
@@ -50,9 +53,23 @@ export function Layout() {
     { path: "/admin/dian-config", icon: Settings, label: "DIAN Config", minRole: "admin" },
   ].filter((item) => hasRoleAccess(role, item.minRole));
 
+  const handleLogout = () => {
+    void logout();
+  };
+
   return (
     <div className="h-screen flex flex-col md:flex-row bg-background">
       <SessionTimeout />
+      {tabletMode && (
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="fixed top-4 left-4 z-20 inline-flex items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar px-3 py-2 text-sm text-sidebar-foreground shadow-md hover:bg-sidebar-accent"
+        >
+          <LogOut className="w-4 h-4" />
+          Salir
+        </button>
+      )}
       {!tabletMode && (
         <aside className="hidden md:flex md:flex-col md:w-64 bg-sidebar border-r border-sidebar-border">
           <div className="p-6 flex items-center justify-between">
@@ -171,6 +188,14 @@ export function Layout() {
                 </button>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 border border-sidebar-border hover:bg-sidebar-accent text-sidebar-foreground"
+            >
+              <LogOut className="w-4 h-4" />
+              Salir
+            </button>
           </div>
         </aside>
       )}
@@ -201,6 +226,14 @@ export function Layout() {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg min-w-[60px] text-sidebar-foreground"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-[10px]">Salir</span>
+          </button>
         </nav>
       )}
     </div>

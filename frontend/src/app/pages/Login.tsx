@@ -76,7 +76,7 @@ export function Login() {
                 <Input
                   id="username"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                   autoComplete="username"
                   required
                   aria-invalid={!!error}
@@ -90,7 +90,7 @@ export function Login() {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   required
                   aria-invalid={!!error}

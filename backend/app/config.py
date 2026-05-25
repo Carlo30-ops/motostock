@@ -1,13 +1,12 @@
-import secrets
-
+from pydantic import ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore")
 
     DATABASE_URL: str = "postgresql://motostock:motostock_pass@localhost:5432/motostock"
-    SECRET_KEY: str = secrets.token_urlsafe(32)  # Genera clave segura por defecto
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     # String separado por comas (compatible con docker-compose: CORS_ORIGINS=http://a,http://b)
@@ -15,6 +14,13 @@ class Settings(BaseSettings):
 
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("SECRET_KEY no puede estar vacia")
+        return value
 
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
@@ -52,4 +58,12 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
 
-settings = Settings()
+try:
+    settings = Settings()
+except ValidationError as exc:
+    if any(error.get("loc") == ("SECRET_KEY",) for error in exc.errors()):
+        raise RuntimeError(
+            "Falta configurar SECRET_KEY en las variables de entorno. "
+            "Genera un valor seguro con: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        ) from exc
+    raise

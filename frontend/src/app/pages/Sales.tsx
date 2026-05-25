@@ -190,19 +190,19 @@ export function Sales() {
   const isCashInsufficient = paymentMethod === "cash" && numericReceived < total && numericReceived > 0;
   const vuelto = paymentMethod === "cash" && numericReceived >= total ? numericReceived - total : 0;
 
-  const finishSaleUi = (saleId: string) => {
+  const finishSaleUi = (createdSale: Sale) => {
     setLastSaleReceipt({
-      saleId,
+      saleId: createdSale.id,
       date: new Date(),
       client: selectedClient,
       items: [...cart],
       subtotal,
       discountAmount,
       ivaAmount,
-      total,
-      paymentMethod,
+      total: createdSale.total,
+      paymentMethod: createdSale.paymentMethod,
       received: numericReceived,
-      vuelto,
+      vuelto: paymentMethod === "cash" && numericReceived >= createdSale.total ? numericReceived - createdSale.total : 0,
     });
     setCart([]);
     setDiscountPercent(0);
@@ -234,6 +234,7 @@ export function Sales() {
     }
 
     const sale: Omit<Sale, "id"> = {
+      offlineId: crypto.randomUUID(),
       date: new Date().toISOString().slice(0, 10),
       items: cart.map((item) => {
         const volumeDiscount = item.quantity >= 5 ? 0.9 : 1;
@@ -254,7 +255,7 @@ export function Sales() {
         onSuccess: (created) => {
           toast.success("Venta registrada");
           playSaleSuccessSound();
-          finishSaleUi(created.id);
+          finishSaleUi(created);
         },
         onError: (error) => toast.error(apiErrorMessage(error)),
       }
@@ -377,7 +378,7 @@ export function Sales() {
                 className="w-full bg-transparent border-none focus:ring-0 text-lg p-4 outline-none placeholder:text-muted-foreground/70"
                 placeholder="Escanea el código o busca un producto..."
                 value={searchTerm}
-                onChange={(e) => {
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setSearchTerm(e.target.value);
                   setShowDropdown(true);
                 }}
@@ -584,9 +585,12 @@ export function Sales() {
                   
                   {selectedClient.creditBalance > 0 && (
                     <div className="text-sm font-bold text-success flex items-center gap-1 mt-1">
-                      <Wallet className="w-4 h-4"/> Crédito disponible: {formatCurrency(selectedClient.creditBalance)}
+                      <Wallet className="w-4 h-4"/> Cupo disponible: {formatCurrency(selectedClient.creditBalance)}
                     </div>
                   )}
+                  <div className="text-xs text-muted-foreground">
+                    Cupo máximo: {formatCurrency(selectedClient.creditLimit)}
+                  </div>
                   
                   {isOilChangePending(selectedClient) && (
                     <div className="mt-2 bg-warning/10 border border-warning/30 p-2 rounded flex items-start gap-2 text-warning-foreground text-sm">
@@ -695,11 +699,11 @@ export function Sales() {
                 className="w-full h-14 text-lg font-bold shadow-lg" 
                 size="lg"
                 disabled={
-                  productsLoading ||
+                  !!(productsLoading ||
                   createSale.isPending ||
                   cart.length === 0 ||
                   (paymentMethod === "cash" && (numericReceived < total || cashReceived === "")) ||
-                  (paymentMethod === "credit" && selectedClient && total > selectedClient.creditBalance)
+                  (paymentMethod === "credit" && selectedClient && total > selectedClient.creditBalance))
                 }
               >
                 {createSale.isPending ? "Registrando…" : `Cobrar ${formatCurrency(total)}`}
@@ -710,7 +714,7 @@ export function Sales() {
       </div>
 
       {/* THERMAL RECEIPT MODAL */}
-      <Modal open={showReceipt} onOpenChange={setShowReceipt} className="max-w-[400px]">
+      <Modal open={showReceipt} onOpenChange={setShowReceipt} title="Recibo de Venta" className="max-w-[400px]">
         {lastSaleReceipt && (
           <div className="flex flex-col h-full max-h-[85vh]">
             <div className="flex-1 overflow-y-auto px-4 py-6 bg-white text-black" id="receipt-print-area">

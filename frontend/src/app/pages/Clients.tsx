@@ -50,6 +50,7 @@ export function Clients() {
     lastServiceDate: "",
     oilChangeIntervalKm: 6000,
     currentKm: 0,
+    creditLimit: 500000,
     creditBalance: 0,
   });
 
@@ -92,6 +93,7 @@ export function Clients() {
       lastServiceDate: "",
       oilChangeIntervalKm: 6000,
       currentKm: 0,
+      creditLimit: 500000,
       creditBalance: 0,
     });
   };
@@ -105,6 +107,7 @@ export function Clients() {
       lastServiceDate: client.lastServiceDate,
       oilChangeIntervalKm: client.oilChangeIntervalKm,
       currentKm: client.currentKm,
+      creditLimit: client.creditLimit,
       creditBalance: client.creditBalance,
     });
     setShowModal(true);
@@ -258,6 +261,7 @@ export function Clients() {
                       <th className="text-left py-3 px-2">Moto</th>
                       <th className="text-left py-3 px-2">Último servicio</th>
                       <th className="text-right py-3 px-2">KM actual</th>
+                      <th className="text-right py-3 px-2">Cupo</th>
                       <th className="text-center py-3 px-2">Aceite</th>
                       <th className="text-right py-3 px-2">Acciones</th>
                     </tr>
@@ -283,6 +287,12 @@ export function Clients() {
                                 Próximo: {nextServiceKm.toLocaleString()} km
                               </p>
                             </div>
+                          </td>
+                          <td className="py-3 px-2 text-right">
+                            <p className="font-medium">{client.creditBalance.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Max: {client.creditLimit.toLocaleString()}
+                            </p>
                           </td>
                           <td className="py-3 px-2 text-center">
                             <Badge variant={status.variant}>{status.label}</Badge>
@@ -316,7 +326,7 @@ export function Clients() {
               <Input
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             <div>
@@ -324,7 +334,7 @@ export function Clients() {
               <Input
                 required
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
           </div>
@@ -334,7 +344,7 @@ export function Clients() {
             <Input
               required
               value={formData.motorcycleModel}
-              onChange={(e) => setFormData({ ...formData, motorcycleModel: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, motorcycleModel: e.target.value })}
             />
           </div>
 
@@ -344,7 +354,7 @@ export function Clients() {
               <Input
                 type="date"
                 value={formData.lastServiceDate}
-                onChange={(e) => setFormData({ ...formData, lastServiceDate: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, lastServiceDate: e.target.value })}
               />
             </div>
             <div>
@@ -354,7 +364,7 @@ export function Clients() {
                 required
                 min="0"
                 value={formData.currentKm}
-                onChange={(e) => setFormData({ ...formData, currentKm: Number(e.target.value) })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, currentKm: Number(e.target.value) })}
               />
             </div>
           </div>
@@ -367,10 +377,36 @@ export function Clients() {
               min="1000"
               step="1000"
               value={formData.oilChangeIntervalKm}
-              onChange={(e) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setFormData({ ...formData, oilChangeIntervalKm: Number(e.target.value) })
               }
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block mb-2">Cupo máximo</label>
+              <Input
+                type="number"
+                required
+                min="0"
+                step="1000"
+                value={formData.creditLimit}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="block mb-2">Cupo disponible</label>
+              <Input
+                type="number"
+                required
+                min="0"
+                step="1000"
+                max={formData.creditLimit}
+                value={formData.creditBalance}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, creditBalance: Number(e.target.value) })}
+              />
+            </div>
           </div>
 
           <div className="flex gap-2 pt-4">

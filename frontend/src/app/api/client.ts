@@ -52,6 +52,21 @@ export interface LoginTokenResponse {
   refresh_token?: string;
 }
 
+const authClient = axios.create({
+  baseURL: API_ROOT,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+let refreshInFlight: Promise<boolean> | null = null;
+let authSessionVersion = 0;
+
+function invalidateAuthSession(): void {
+  authSessionVersion += 1;
+  refreshInFlight = null;
+}
+
 export async function loginWithCredentials(
   username: string,
   password: string
@@ -59,13 +74,61 @@ export async function loginWithCredentials(
   const form = new URLSearchParams();
   form.append("username", username);
   form.append("password", password);
-  const { data } = await axios.post<LoginTokenResponse>(
-    `${API_ROOT}/auth/token`,
+  const { data } = await authClient.post<LoginTokenResponse>(
+    "/auth/token-with-refresh",
     form,
     { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
   );
   setAuthTokens(data.access_token, data.refresh_token ?? null);
   return data;
+}
+
+export async function refreshAuthSession(): Promise<boolean> {
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    return false;
+  }
+
+  const sessionVersion = authSessionVersion;
+
+  refreshInFlight = authClient
+    .post<LoginTokenResponse>("/auth/refresh", {
+      refresh_token: refreshToken,
+    })
+    .then(({ data }) => {
+      if (sessionVersion !== authSessionVersion) {
+        return false;
+      }
+      setAuthTokens(data.access_token, data.refresh_token ?? refreshToken);
+      return true;
+    })
+    .catch(() => {
+      if (sessionVersion === authSessionVersion) {
+        clearAuthTokens();
+      }
+      return false;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+
+  return refreshInFlight;
+}
+
+export async function logoutSession(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  invalidateAuthSession();
+  try {
+    if (refreshToken) {
+      await authClient.post("/auth/logout", { refresh_token: refreshToken });
+    }
+  } finally {
+    clearAuthTokens();
+  }
 }
 
 let isRedirectingToLogin = false;
@@ -75,6 +138,7 @@ function redirectToLogin(): void {
     return;
   }
   isRedirectingToLogin = true;
+  invalidateAuthSession();
   clearAuthTokens();
   window.location.href = "/login";
 }
@@ -93,11 +157,13 @@ export interface ApiSaleItemIn {
 }
 
 export interface ApiSaleCreatePayload {
+  offline_id?: string | null;
   client_id?: number | null;
   date: string;
   items: ApiSaleItemIn[];
   discount_pct: number;
   payment_method: string;
+  expected_total: number;
 }
 
 export interface ApiClientRaw {
@@ -108,6 +174,7 @@ export interface ApiClientRaw {
   last_service_date?: string | null;
   oil_change_interval_km: number;
   current_km: number;
+  credit_limit: number;
   credit_balance: number;
 }
 
@@ -120,6 +187,7 @@ export function mapClientFromApi(raw: ApiClientRaw): Client {
     lastServiceDate: raw.last_service_date ?? "",
     oilChangeIntervalKm: raw.oil_change_interval_km,
     currentKm: raw.current_km,
+    creditLimit: raw.credit_limit,
     creditBalance: raw.credit_balance,
   };
 }
@@ -136,6 +204,7 @@ export function mapClientToApiPayload(data: Partial<Omit<Client, "id">>): Record
     payload.oil_change_interval_km = data.oilChangeIntervalKm;
   }
   if (data.currentKm !== undefined) payload.current_km = data.currentKm;
+  if (data.creditLimit !== undefined) payload.credit_limit = data.creditLimit;
   if (data.creditBalance !== undefined) payload.credit_balance = data.creditBalance;
   return payload;
 }
@@ -148,6 +217,7 @@ export interface ApiSaleItemRaw {
 
 export interface ApiSaleRaw {
   id: number;
+  offline_id?: string | null;
   client_id?: number | null;
   date: string;
   total: number;
@@ -158,6 +228,7 @@ export interface ApiSaleRaw {
 export function mapSaleFromApi(raw: ApiSaleRaw): Sale {
   const sale: Sale = {
     id: String(raw.id),
+    offlineId: raw.offline_id || undefined,
     date: raw.date,
     total: raw.total,
     paymentMethod: raw.payment_method as Sale["paymentMethod"],
@@ -394,6 +465,7 @@ export function mapSaleToApiPayload(
   discountPct: number
 ): ApiSaleCreatePayload {
   return {
+    offline_id: data.offlineId || null,
     client_id: data.clientId ? Number(data.clientId) : null,
     date: data.date.slice(0, 10),
     items: data.items.map((item) => ({
@@ -403,6 +475,7 @@ export function mapSaleToApiPayload(
     })),
     discount_pct: discountPct,
     payment_method: data.paymentMethod,
+    expected_total: data.total,
   };
 }
 export interface CreateOrderPayload extends Omit<PurchaseOrder, "id"> {}
@@ -543,6 +616,13 @@ export const apiClient = axios.create({
   },
 });
 
+const authBypassPaths = new Set([
+  "/auth/token",
+  "/auth/token-with-refresh",
+  "/auth/refresh",
+  "/auth/logout",
+]);
+
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getAccessToken();
   if (token) {
@@ -554,7 +634,24 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean } | undefined;
+    const requestUrl = originalRequest?.url ?? "";
+    const isAuthRequest = [...authBypassPaths].some((path) => requestUrl.includes(path));
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
+      originalRequest._retry = true;
+      const refreshed = await refreshAuthSession();
+      if (refreshed) {
+        const token = getAccessToken();
+        if (token) {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+        }
+        return apiClient.request(originalRequest);
+      }
+      redirectToLogin();
+      return Promise.reject(error);
+    }
+    if (error.response?.status === 401 && !isAuthRequest) {
       redirectToLogin();
     }
     return Promise.reject(error);
@@ -629,16 +726,21 @@ export const api = {
     requestWithOfflineQueue(
       () =>
         apiClient
-          .post<{ id: number; total: number }>("/sales/", mapSaleToApiPayload(data, discountPct))
+          .post<ApiSaleRaw>("/sales/", mapSaleToApiPayload(data, discountPct))
           .then((res) => {
             const sale: Sale = {
               id: String(res.data.id),
-              date: data.date,
-              items: data.items,
+              offlineId: res.data.offline_id || undefined,
+              date: String(res.data.date),
+              items: res.data.items.map((item) => ({
+                productId: String(item.product_id),
+                quantity: item.quantity,
+                price: item.unit_price,
+              })),
               total: res.data.total,
-              paymentMethod: data.paymentMethod,
+              paymentMethod: res.data.payment_method as Sale["paymentMethod"],
             };
-            if (data.clientId) sale.clientId = data.clientId;
+            if (res.data.client_id != null) sale.clientId = String(res.data.client_id);
             return sale;
           }),
       {

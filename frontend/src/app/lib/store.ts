@@ -29,11 +29,13 @@ export interface Client {
   lastServiceDate: string;
   oilChangeIntervalKm: number;
   currentKm: number;
+  creditLimit: number;
   creditBalance: number;
 }
 
 export interface Sale {
   id: string;
+  offlineId?: string;
   date: string;
   items: { productId: string; quantity: number; price: number }[];
   total: number;
@@ -205,6 +207,7 @@ const initialClients: Client[] = [
       lastServiceDate: "2026-04-15",
       oilChangeIntervalKm: 5000,
       currentKm: 9800,
+      creditLimit: 500000,
       creditBalance: 0,
     },
     {
@@ -215,6 +218,7 @@ const initialClients: Client[] = [
       lastServiceDate: "2026-03-20",
       oilChangeIntervalKm: 6000,
       currentKm: 14500,
+      creditLimit: 500000,
       creditBalance: 45.50,
     },
     {
@@ -225,6 +229,7 @@ const initialClients: Client[] = [
       lastServiceDate: "2026-05-01",
       oilChangeIntervalKm: 6000,
       currentKm: 18200,
+      creditLimit: 500000,
       creditBalance: 0,
     },
 ];
@@ -389,7 +394,9 @@ const useStoreBase = create<StoreState>((set, get) => ({
       const clients =
         sale.paymentMethod === "credit" && sale.clientId
           ? state.clients.map((client) =>
-              client.id === sale.clientId ? { ...client, creditBalance: client.creditBalance + sale.total } : client
+              client.id === sale.clientId
+                ? { ...client, creditBalance: Math.max(0, client.creditBalance - sale.total) }
+                : client
             )
           : state.clients;
       return {

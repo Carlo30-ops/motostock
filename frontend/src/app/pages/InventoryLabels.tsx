@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
-import { store, Product } from "../lib/store";
+import { store } from "../lib/store";
 import { Button } from "../components/ui/Button";
 import { formatCurrency } from "../lib/utils";
 import { api } from "../api/client";
@@ -46,7 +46,9 @@ export function InventoryLabels() {
   const generateBarcode = async (productId: string) => {
     try {
       const res = await api.generateBarcode(Number(productId));
-      store.updateProduct(productId, { barcode: res.barcode });
+      if (res.barcode) {
+        store.updateProduct(productId, { barcode: res.barcode });
+      }
       // Force a tiny re-render or the store will update it if using Zustand properly
       setCopies(c => ({...c}));
     } catch (e) {

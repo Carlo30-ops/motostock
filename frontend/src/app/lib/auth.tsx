@@ -13,13 +13,14 @@ import {
   clearAuthTokens,
   getAccessToken,
   loginWithCredentials,
+  logoutSession,
 } from "../api/client";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -38,10 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    clearAuthTokens();
-    setIsAuthenticated(false);
-    window.location.href = "/login";
+  const logout = useCallback(async () => {
+    try {
+      await logoutSession();
+    } finally {
+      clearAuthTokens();
+      setIsAuthenticated(false);
+      window.location.href = "/login";
+    }
   }, []);
 
   const value = useMemo(

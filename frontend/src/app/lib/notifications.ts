@@ -101,23 +101,23 @@ export const useNotifications = () => {
 
 // Helper functions para reemplazar alert() comúnmente usados
 export const showSuccess = (message: string, title = 'Éxito') => {
-  const { notify } = useNotifications.getState();
-  notify.success(title, message);
+  const { addNotification } = useNotificationStore.getState();
+  addNotification({ type: 'success', title, message });
 };
 
 export const showError = (message: string, title = 'Error') => {
-  const { notify } = useNotifications.getState();
-  notify.error(title, message);
+  const { addNotification } = useNotificationStore.getState();
+  addNotification({ type: 'error', title, message });
 };
 
 export const showWarning = (message: string, title = 'Advertencia') => {
-  const { notify } = useNotifications.getState();
-  notify.warning(title, message);
+  const { addNotification } = useNotificationStore.getState();
+  addNotification({ type: 'warning', title, message });
 };
 
 export const showInfo = (message: string, title = 'Información') => {
-  const { notify } = useNotifications.getState();
-  notify.info(title, message);
+  const { addNotification } = useNotificationStore.getState();
+  addNotification({ type: 'info', title, message });
 };
 
 // Para casos especiales donde necesitamos confirmación

@@ -283,7 +283,7 @@ export function Inventory() {
               <Input
                 placeholder={t("inventory.search")}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
             </div>
@@ -431,7 +431,7 @@ export function Inventory() {
               <Input
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
                 placeholder={t("inventory.enterProductName")}
               />
             </div>
@@ -440,7 +440,7 @@ export function Inventory() {
               <Input
                 required
                 value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, code: e.target.value })}
                 placeholder={t("inventory.enterCode")}
               />
             </div>
@@ -452,7 +452,7 @@ export function Inventory() {
               <Input
                 required
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, category: e.target.value })}
                 placeholder={t("inventory.enterCategory")}
               />
             </div>
@@ -461,7 +461,7 @@ export function Inventory() {
               <Input
                 required
                 value={formData.brand}
-                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, brand: e.target.value })}
                 placeholder={t("inventory.enterBrand")}
               />
             </div>

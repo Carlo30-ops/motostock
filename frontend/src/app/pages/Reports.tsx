@@ -71,7 +71,7 @@ export function Reports() {
       } else {
         const doc = new jsPDF();
         doc.text(`Reporte de ventas ${dateFrom} — ${dateTo}`, 14, 15);
-        autoTable({
+        autoTable(doc, {
           head: [Object.keys(rows[0] ?? { Producto: "" })],
           body: rows.map((r) => Object.values(r)),
           startY: 22,
@@ -108,7 +108,7 @@ export function Reports() {
       } else {
         const doc = new jsPDF();
         doc.text("Reporte de inventario", 14, 15);
-        autoTable({
+        autoTable(doc, {
           head: [["Producto", "Categoría", "Stock", "Estado"]],
           body: rows.map((r) => [r.Producto, r.Categoría, r.Stock, r.Estado]),
           startY: 22,
@@ -137,11 +137,11 @@ export function Reports() {
         <CardContent className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="block text-sm mb-1">Desde</label>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <Input type="date" value={dateFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateFrom(e.target.value)} />
           </div>
           <div>
             <label className="block text-sm mb-1">Hasta</label>
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <Input type="date" value={dateTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateTo(e.target.value)} />
           </div>
           <Button variant="outline" onClick={() => refetchSales()}>
             Actualizar

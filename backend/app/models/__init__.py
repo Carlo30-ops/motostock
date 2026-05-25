@@ -125,6 +125,7 @@ class Client(Base):
     last_service_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     oil_change_interval_km: Mapped[int] = mapped_column(Integer, default=6000, nullable=False)
     current_km: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    credit_limit: Mapped[float] = mapped_column(Float, default=500000.0, nullable=False)
     credit_balance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -159,6 +160,7 @@ class Sale(Base):
     __tablename__ = "sales"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    offline_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True)
     client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id"), nullable=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     subtotal: Mapped[float] = mapped_column(Float, nullable=False)

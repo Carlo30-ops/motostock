@@ -179,7 +179,7 @@ export function Profile() {
                   <Input
                     type="password"
                     value={passwords.current}
-                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswords({ ...passwords, current: e.target.value })}
                     required
                   />
                 </div>
@@ -189,7 +189,7 @@ export function Profile() {
                     <Input
                       type="password"
                       value={passwords.new}
-                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswords({ ...passwords, new: e.target.value })}
                       required
                     />
                   </div>
@@ -198,7 +198,7 @@ export function Profile() {
                     <Input
                       type="password"
                       value={passwords.confirm}
-                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswords({ ...passwords, confirm: e.target.value })}
                       required
                     />
                   </div>
@@ -234,7 +234,7 @@ export function Profile() {
                     <Input
                       placeholder="Código de 6 dígitos"
                       value={verifyToken}
-                      onChange={(e) => setVerifyToken(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerifyToken(e.target.value)}
                       maxLength={8}
                     />
                     <Button type="submit" variant="outline" disabled={verify2FA.isPending}>
@@ -294,7 +294,7 @@ export function Profile() {
                         <Input
                           placeholder="Confirma con código de la app"
                           value={verifyToken}
-                          onChange={(e) => setVerifyToken(e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerifyToken(e.target.value)}
                           required
                         />
                         <Button type="submit" disabled={verify2FA.isPending}>

@@ -84,39 +84,39 @@ export function AdminDianConfig() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block mb-2">NIT</label>
-                  <Input value={form.nit} onChange={(e) => setForm({ ...form, nit: e.target.value })} required />
+                  <Input value={form.nit} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, nit: e.target.value })} required />
                 </div>
                 <div>
                   <label className="block mb-2">Razon social</label>
-                  <Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} required />
+                  <Input value={form.company_name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, company_name: e.target.value })} required />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block mb-2">Direccion</label>
-                  <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
+                  <Input value={form.address} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, address: e.target.value })} required />
                 </div>
                 <div>
                   <label className="block mb-2">Resolucion DIAN</label>
-                  <Input value={form.dian_resolution} onChange={(e) => setForm({ ...form, dian_resolution: e.target.value })} required />
+                  <Input value={form.dian_resolution} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, dian_resolution: e.target.value })} required />
                 </div>
                 <div>
                   <label className="block mb-2">Numero resolucion</label>
-                  <Input value={form.resolution_number} onChange={(e) => setForm({ ...form, resolution_number: e.target.value })} />
+                  <Input value={form.resolution_number} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, resolution_number: e.target.value })} />
                 </div>
                 <div>
                   <label className="block mb-2">Prefijo factura</label>
-                  <Input value={form.invoice_prefix} onChange={(e) => setForm({ ...form, invoice_prefix: e.target.value })} required />
+                  <Input value={form.invoice_prefix} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, invoice_prefix: e.target.value })} required />
                 </div>
                 <div>
                   <label className="block mb-2">Proveedor</label>
-                  <Input value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} required />
+                  <Input value={form.provider} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, provider: e.target.value })} required />
                 </div>
                 <div>
                   <label className="block mb-2">Ruta certificado</label>
-                  <Input value={form.cert_path} onChange={(e) => setForm({ ...form, cert_path: e.target.value })} />
+                  <Input value={form.cert_path} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, cert_path: e.target.value })} />
                 </div>
                 <div>
                   <label className="block mb-2">Password certificado</label>
-                  <Input type="password" value={form.cert_password} onChange={(e) => setForm({ ...form, cert_password: e.target.value })} />
+                  <Input type="password" value={form.cert_password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, cert_password: e.target.value })} />
                 </div>
               </div>
 

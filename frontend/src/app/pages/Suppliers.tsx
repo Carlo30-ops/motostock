@@ -163,7 +163,7 @@ export function Suppliers() {
                 <Input
                   placeholder="Buscar por nombre, contacto o email..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                   className="flex-1"
                 />
               </div>
@@ -307,7 +307,7 @@ export function Suppliers() {
               <Input
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Razón Social"
               />
             </div>
@@ -330,7 +330,7 @@ export function Suppliers() {
               <Input
                 required
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="Número celular/fijo"
               />
             </div>
@@ -340,7 +340,7 @@ export function Suppliers() {
                 type="email"
                 required
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="contacto@empresa.com"
               />
             </div>
@@ -351,7 +351,7 @@ export function Suppliers() {
             <Input
               required
               value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, address: e.target.value })}
               placeholder="Dirección completa"
             />
           </div>

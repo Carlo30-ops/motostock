@@ -18,6 +18,8 @@ def get_clients(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
 
 @router.post("/", response_model=schemas.ClientOut, status_code=status.HTTP_201_CREATED)
 def create_client(client: schemas.ClientCreate, db: Session = Depends(get_db)):
+    if client.credit_balance > client.credit_limit:
+        raise HTTPException(status_code=400, detail="El cupo disponible no puede superar el cupo maximo")
     db_client = models.Client(**client.model_dump())
     db.add(db_client)
     db.commit()
@@ -32,6 +34,10 @@ def update_client(client_id: int, client: schemas.ClientUpdate, db: Session = De
         raise HTTPException(status_code=404, detail="Client not found")
     
     update_data = client.model_dump(exclude_unset=True)
+    next_credit_limit = update_data.get("credit_limit", db_client.credit_limit)
+    next_credit_balance = update_data.get("credit_balance", db_client.credit_balance)
+    if next_credit_balance > next_credit_limit:
+        raise HTTPException(status_code=400, detail="El cupo disponible no puede superar el cupo maximo")
     for key, value in update_data.items():
         setattr(db_client, key, value)
         
@@ -53,9 +59,21 @@ def adjust_client_credit(client_id: int, adjustment: schemas.CreditAdjust, db: S
     client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-        
-    # Update balance
-    client.credit_balance += adjustment.amount
+
+    new_balance = round(client.credit_balance + adjustment.amount, 2)
+    if new_balance < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="El cupo disponible no puede quedar negativo",
+        )
+    if new_balance > client.credit_limit:
+        raise HTTPException(
+            status_code=400,
+            detail="El cupo disponible no puede superar el cupo maximo",
+        )
+
+    # credit_balance representa cupo disponible: positivo recarga, negativo descuenta.
+    client.credit_balance = new_balance
     
     # Add ledger entry
     ledger_entry = models.CreditLedger(

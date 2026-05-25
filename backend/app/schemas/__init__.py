@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -118,7 +118,22 @@ class ClientCreate(BaseModel):
     last_service_date: Optional[date] = None
     oil_change_interval_km: int = 6000
     current_km: int = 0
+    credit_limit: float = 500000.0
     credit_balance: float = 0.0
+
+    @field_validator("credit_limit")
+    @classmethod
+    def validate_credit_limit(cls, value: float) -> float:
+        if value < 0:
+            raise ValueError("credit_limit must be greater than or equal to 0")
+        return value
+
+    @field_validator("credit_balance")
+    @classmethod
+    def validate_credit_balance(cls, value: float) -> float:
+        if value < 0:
+            raise ValueError("credit_balance must be greater than or equal to 0")
+        return value
 
 
 class ClientUpdate(BaseModel):
@@ -130,7 +145,15 @@ class ClientUpdate(BaseModel):
     last_service_date: Optional[date] = None
     oil_change_interval_km: Optional[int] = None
     current_km: Optional[int] = None
+    credit_limit: Optional[float] = None
     credit_balance: Optional[float] = None
+
+    @field_validator("credit_limit", "credit_balance")
+    @classmethod
+    def validate_credit_values(cls, value: Optional[float]) -> Optional[float]:
+        if value is not None and value < 0:
+            raise ValueError("credit values must be greater than or equal to 0")
+        return value
 
 
 class ClientOut(ClientCreate):
@@ -186,16 +209,26 @@ class SaleItemOut(BaseModel):
 
 
 class SaleCreate(BaseModel):
+    offline_id: Optional[str] = None
     client_id: Optional[int] = None
     date: date
     items: list[SaleItemIn]
     discount_pct: float = 0.0
     payment_method: str
+    expected_total: Optional[float] = None
+
+    @field_validator("discount_pct")
+    @classmethod
+    def validate_discount_pct(cls, value: float) -> float:
+        if value < 0 or value > 100:
+            raise ValueError("discount_pct must be between 0 and 100")
+        return value
 
 
 class SaleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    offline_id: Optional[str] = None
     client_id: Optional[int]
     date: date
     subtotal: float

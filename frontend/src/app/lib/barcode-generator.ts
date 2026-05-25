@@ -9,7 +9,6 @@ export interface BarcodeGeneratorOptions {
 
 export class BarcodeGenerator {
   private static readonly DEFAULT_PREFIX = "770"; // Colombia
-  private static readonly EAN13_LENGTH = 13;
 
   /**
    * Genera un código de barras EAN-13 válido automáticamente
@@ -91,14 +90,16 @@ export class BarcodeGenerator {
     
     // Sumar dígitos en posiciones impares (de derecha a izquierda)
     for (let i = 0; i < 6; i++) {
-      const digit = parseInt(code[11 - i * 2]);
-      sum += digit;
+      const char = code[11 - i * 2];
+      const digit = char ? parseInt(char, 10) : 0;
+      sum += isNaN(digit) ? 0 : digit;
     }
     
     // Sumar dígitos en posiciones pares (de derecha a izquierda) y multiplicar por 3
     for (let i = 0; i < 6; i++) {
-      const digit = parseInt(code[10 - i * 2]);
-      sum += digit * 3;
+      const char = code[10 - i * 2];
+      const digit = char ? parseInt(char, 10) : 0;
+      sum += (isNaN(digit) ? 0 : digit) * 3;
     }
     
     // Calcular dígito de verificación
@@ -114,14 +115,16 @@ export class BarcodeGenerator {
     
     // Sumar dígitos en posiciones impares
     for (let i = 0; i < 6; i++) {
-      const digit = parseInt(code[i * 2]);
-      sum += digit;
+      const char = code[i * 2];
+      const digit = char ? parseInt(char, 10) : 0;
+      sum += isNaN(digit) ? 0 : digit;
     }
     
     // Sumar dígitos en posiciones pares y multiplicar por 3
     for (let i = 0; i < 5; i++) {
-      const digit = parseInt(code[i * 2 + 1]);
-      sum += digit * 3;
+      const char = code[i * 2 + 1];
+      const digit = char ? parseInt(char, 10) : 0;
+      sum += (isNaN(digit) ? 0 : digit) * 3;
     }
     
     // Calcular dígito de verificación
@@ -169,8 +172,11 @@ export class BarcodeGenerator {
     }
 
     const code = barcode.slice(0, 12);
-    const checksum = parseInt(barcode[12]);
-    const calculatedChecksum = parseInt(this.calculateEAN13Checksum(code));
+    const lastChar = barcode[12];
+    if (lastChar === undefined) return false;
+    
+    const checksum = parseInt(lastChar, 10);
+    const calculatedChecksum = parseInt(this.calculateEAN13Checksum(code), 10);
     
     return checksum === calculatedChecksum;
   }
@@ -193,8 +199,8 @@ export class BarcodeGenerator {
    */
   static generateBarcodeSVG(barcode: string, width: number = 200, height: number = 60): string {
     const barWidth = width / barcode.length;
-    const bars = barcode.split('').map((digit, index) => {
-      const pattern = this.getBarPattern(parseInt(digit));
+    const bars = barcode.split('').map((digit) => {
+      const pattern = this.getBarPattern(parseInt(digit, 10));
       return pattern.split('').map(bar => bar === '1' ? 'black' : 'white');
     }).flat();
 
@@ -228,7 +234,8 @@ export class BarcodeGenerator {
       8: '0110111',
       9: '0001011'
     };
-    return patterns[digit] || patterns[0];
+    const pattern = patterns[digit];
+    return pattern !== undefined ? pattern : (patterns[0] ?? '0001101');
   }
 }
 

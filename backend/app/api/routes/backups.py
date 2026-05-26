@@ -2,10 +2,10 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
-from app.services.auth import require_minimum_role
+from app.services.auth import require_admin
 from app.scheduler.backup import perform_backup
 
-router = APIRouter(dependencies=[Depends(require_minimum_role("admin"))])
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 BACKUP_DIR = Path(__file__).parent.parent.parent.parent / "backups"
 

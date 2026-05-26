@@ -10,8 +10,7 @@ import { Badge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import type { PurchaseOrder } from "../lib/store";
 import { formatCurrency, formatDate } from "../lib/utils";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-import { hasRoleAccess } from "../lib/rbac";
+import { useAuth, Can } from "../lib/auth-rbac";
 import {
   useProducts,
   useOrders,
@@ -36,8 +35,8 @@ function apiErrorMessage(error: unknown): string {
 }
 
 export function PurchaseOrders() {
-  const { data: currentUser } = useCurrentUser();
-  const canSeeCosts = hasRoleAccess(currentUser?.role, "supervisor");
+  const { hasPermission } = useAuth();
+  const canSeeCosts = hasPermission("inventory:viewCosts");
   const { data: products = [] } = useProducts();
   const { data: suppliers = [] } = useSuppliers();
   const { data: orders = [], isLoading } = useOrders();
@@ -164,10 +163,12 @@ export function PurchaseOrders() {
           <h1>Órdenes de compra</h1>
           <p className="text-muted-foreground mt-1">Gestión de pedidos a proveedores</p>
         </div>
-        <Button onClick={() => setShowModal(true)} size="sm">
-          <Plus className="w-4 h-4" />
-          Nueva orden
-        </Button>
+        <Can permission="orders:create">
+          <Button onClick={() => setShowModal(true)} size="sm">
+            <Plus className="w-4 h-4" />
+            Nueva orden
+          </Button>
+        </Can>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -247,14 +248,16 @@ export function PurchaseOrders() {
                         <p className="text-xl font-medium">{formatCurrency(order.total)}</p>
                       </div>
                       {order.status !== "received" && (
-                        <Button
-                          size="sm"
-                          variant={order.status === "pending" ? "accent" : "primary"}
-                          disabled={updateOrderStatus.isPending}
-                          onClick={() => handleStatusAction(order)}
-                        >
-                          {order.status === "pending" ? "Marcar enviada" : "Marcar recibida"}
-                        </Button>
+                        <Can permission="orders:edit">
+                          <Button
+                            size="sm"
+                            variant={order.status === "pending" ? "accent" : "primary"}
+                            disabled={updateOrderStatus.isPending}
+                            onClick={() => handleStatusAction(order)}
+                          >
+                            {order.status === "pending" ? "Marcar enviada" : "Marcar recibida"}
+                          </Button>
+                        </Can>
                       )}
                     </div>
                   </div>

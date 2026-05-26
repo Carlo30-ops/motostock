@@ -1,8 +1,7 @@
-"""Tests API Fase B: auth refresh, proveedores y taller."""
-
 import uuid
-
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+from app import models
 
 
 def test_login_returns_token(client: TestClient):
@@ -77,7 +76,19 @@ def test_suppliers_crud(client: TestClient, auth_headers: dict):
     assert updated.json()["rating"] == 5
 
 
-def test_workshop_service_templates(client: TestClient, auth_headers: dict):
+def test_workshop_service_templates(client: TestClient, auth_headers: dict, db_session: Session):
+    template = db_session.query(models.ServiceTemplate).first()
+    if not template:
+        template = models.ServiceTemplate(
+            name="Mantenimiento General",
+            description="Revision general",
+            estimated_price=50000.0,
+            estimated_hours=2.0,
+            is_active=True
+        )
+        db_session.add(template)
+        db_session.commit()
+
     response = client.get(
         "/api/workshop/service-templates",
         headers=auth_headers,
@@ -88,12 +99,32 @@ def test_workshop_service_templates(client: TestClient, auth_headers: dict):
     assert "name" in templates[0]
 
 
-def test_workshop_vehicle_and_work_order(client: TestClient, auth_headers: dict):
-    clients = client.get("/api/clients/", headers=auth_headers)
-    assert clients.status_code == 200
-    assert clients.json(), "Se requiere al menos un cliente en seed"
+def test_workshop_vehicle_and_work_order(client: TestClient, auth_headers: dict, db_session: Session):
+    # Crear cliente en la base de datos
+    db_client = models.Client(
+        name="Cliente Taller QA",
+        phone="3009876543",
+        motorcycle_model="Scooter 125",
+        credit_limit=0.0,
+        credit_balance=0.0
+    )
+    db_session.add(db_client)
+    
+    # Crear ServiceTemplate
+    template = models.ServiceTemplate(
+        name="Cambio de Aceite",
+        description="Cambio de aceite de motor y filtro",
+        estimated_price=30000.0,
+        estimated_hours=0.5,
+        is_active=True
+    )
+    db_session.add(template)
+    db_session.commit()
+    db_session.refresh(db_client)
+    db_session.refresh(template)
 
-    client_id = clients.json()[0]["id"]
+    client_id = db_client.id
+    service_id = template.id
 
     plate = f"TST{uuid.uuid4().hex[:6].upper()}"
     vehicle = client.post(
@@ -109,12 +140,6 @@ def test_workshop_vehicle_and_work_order(client: TestClient, auth_headers: dict)
     )
     assert vehicle.status_code == 201, vehicle.text
     vehicle_id = vehicle.json()["id"]
-
-    templates = client.get(
-        "/api/workshop/service-templates",
-        headers=auth_headers,
-    ).json()
-    service_id = templates[0]["id"]
 
     order = client.post(
         "/api/workshop/work-orders",

@@ -56,11 +56,32 @@ export interface Supplier {
 
 export interface PurchaseOrder {
   id: string;
+  branchId: number;
   supplierId: string;
-  items: { productId: string; quantity: number; cost: number }[];
-  status: "pending" | "sent" | "received";
+  supplier: string;
+  items: { 
+    id: string; 
+    productId: string; 
+    quantity: number; 
+    receivedQuantity: number; 
+    unitCost: number 
+  }[];
+  status: 
+    | "draft" 
+    | "pending_approval" 
+    | "approved" 
+    | "rejected" 
+    | "ordered" 
+    | "partially_received" 
+    | "received" 
+    | "cancelled";
   date: string;
   total: number;
+  notes?: string;
+  approvedById?: number;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Vehicle {

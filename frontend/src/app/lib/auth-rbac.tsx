@@ -1,316 +1,242 @@
-/**
- * Fase 1.2: ProtectedRoute exige access_token; permisos opcionales vía rol del usuario real.
- */
+import React, { createContext, useContext, useMemo } from "react";
 import { Navigate, useLocation } from "react-router";
-import { getAccessToken } from "../api/client";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-// Sistema de RBAC (Role-Based Access Control) para MotoStock
+import { getAccessToken } from "../api/client";
 
-export type Permission = 
-  | "canViewDashboard"
-  | "canViewInventory"
-  | "canEditInventory"
-  | "canDeleteInventory"
-  | "canViewSales"
-  | "canCreateSales"
-  | "canVoidSales"
-  | "canViewReports"
-  | "canCreateReports"
-  | "canViewClients"
-  | "canEditClients"
-  | "canDeleteClients"
-  | "canViewOrders"
-  | "canCreateOrders"
-  | "canApproveOrders"
-  | "canViewAuditLogs"
-  | "canManageBackups"
-  | "canManageUsers"
-  | "canManageSettings";
+// --- 1. Definiciones de Tipos ---
 
-export type UserRole = "admin" | "manager" | "cashier" | "viewer";
+export type UserRole = 
+  | "superadmin" 
+  | "admin" 
+  | "supervisor" 
+  | "accountant" 
+  | "mechanic" 
+  | "cashier";
 
-export interface User {
-  id: string;
-  username: string;
-  fullName: string;
-  email: string;
-  role: UserRole;
-  permissions: Permission[];
-  isActive: boolean;
-  lastLogin?: string;
-  createdAt: string;
-}
+export type Permission =
+  // Inventario
+  | "inventory:view"
+  | "inventory:viewCosts"
+  | "inventory:edit"
+  | "inventory:delete"
+  | "inventory:adjustStock"
+  // Ventas
+  | "sales:view"
+  | "sales:create"
+  | "sales:void"
+  | "sales:applyDiscount"
+  | "sales:manageCombos"
+  // Reportes
+  | "reports:view"
+  | "reports:export"
+  | "reports:financial"
+  // Órdenes de Compra
+  | "orders:view"
+  | "orders:create"
+  | "orders:edit"
+  | "orders:approve"
+  | "orders:receive"
+  | "orders:viewCosts"
+  | "orders:cancel"
+  // Taller
+  | "workshop:view"
+  | "workshop:edit"
+  | "workshop:createOrder"
+  | "workshop:updateStatus"
+  | "workshop:assignMechanic"
+  // Usuarios y Sistema
+  | "users:view"
+  | "users:manage"
+  | "users:manageSuperadmin"
+  | "settings:view"
+  | "settings:edit"
+  | "system:backups"
+  | "system:logs";
 
-// Definición de permisos por rol
-export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  admin: [
-    // Dashboard
-    "canViewDashboard",
-    // Inventario
-    "canViewInventory",
-    "canEditInventory", 
-    "canDeleteInventory",
-    // Ventas
-    "canViewSales",
-    "canCreateSales",
-    "canVoidSales",
-    // Reportes
-    "canViewReports",
-    "canCreateReports",
-    // Clientes
-    "canViewClients",
-    "canEditClients",
-    "canDeleteClients",
-    // Órdenes
-    "canViewOrders",
-    "canCreateOrders",
-    "canApproveOrders",
-    // Sistema
-    "canViewAuditLogs",
-    "canManageBackups",
-    "canManageUsers",
-    "canManageSettings"
+export type FeatureFlag = 
+  | "enableAdvancedReports"
+  | "enableWorkshopModule"
+  | "enableFinancialDashboard";
+
+// --- 2. Matriz de Permisos (Atomic & Compound Logic) ---
+
+const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  superadmin: [
+    "inventory:view", "inventory:viewCosts", "inventory:edit", "inventory:delete", "inventory:adjustStock",
+    "sales:view", "sales:create", "sales:void", "sales:applyDiscount", "sales:manageCombos",
+    "reports:view", "reports:export", "reports:financial",
+    "orders:view", "orders:create", "orders:edit", "orders:approve", "orders:receive", "orders:viewCosts", "orders:cancel",
+    "workshop:view", "workshop:edit", "workshop:createOrder", "workshop:updateStatus", "workshop:assignMechanic",
+    "users:view", "users:manage", "users:manageSuperadmin",
+    "settings:view", "settings:edit", "system:backups", "system:logs"
   ],
-  manager: [
-    // Dashboard
-    "canViewDashboard",
-    // Inventario
-    "canViewInventory",
-    "canEditInventory",
-    // Ventas
-    "canViewSales",
-    "canCreateSales",
-    "canVoidSales",
-    // Reportes
-    "canViewReports",
-    "canCreateReports",
-    // Clientes
-    "canViewClients",
-    "canEditClients",
-    // Órdenes
-    "canViewOrders",
-    "canCreateOrders",
-    "canApproveOrders",
-    // Sistema
-    "canViewAuditLogs",
-    "canManageBackups"
+  admin: [
+    "inventory:view", "inventory:viewCosts", "inventory:edit", "inventory:delete", "inventory:adjustStock",
+    "sales:view", "sales:create", "sales:void", "sales:applyDiscount", "sales:manageCombos",
+    "reports:view", "reports:export", "reports:financial",
+    "orders:view", "orders:create", "orders:edit", "orders:approve", "orders:receive", "orders:viewCosts", "orders:cancel",
+    "workshop:view", "workshop:edit", "workshop:createOrder", "workshop:updateStatus", "workshop:assignMechanic",
+    "users:view", "users:manage",
+    "settings:view", "settings:edit", "system:backups", "system:logs"
+  ],
+  supervisor: [
+    "inventory:view", "inventory:viewCosts", "inventory:edit", "inventory:adjustStock",
+    "sales:view", "sales:create", "sales:manageCombos",
+    "reports:view", "reports:export",
+    "orders:view", "orders:create", "orders:edit", "orders:receive", "orders:viewCosts", "orders:cancel",
+    "workshop:view", "workshop:edit", "workshop:createOrder", "workshop:updateStatus", "workshop:assignMechanic",
+    "users:view", "settings:view"
+  ],
+  accountant: [
+    "inventory:view", "inventory:viewCosts",
+    "sales:view",
+    "reports:view", "reports:export", "reports:financial",
+    "orders:view", "orders:viewCosts",
+    "workshop:view", "settings:view"
+  ],
+  mechanic: [
+    "inventory:view",
+    "workshop:view", "workshop:updateStatus"
   ],
   cashier: [
-    // Dashboard
-    "canViewDashboard",
-    // Inventario
-    "canViewInventory",
-    // Ventas
-    "canViewSales",
-    "canCreateSales",
-    // Clientes
-    "canViewClients",
-    // Órdenes
-    "canViewOrders"
-  ],
-  viewer: [
-    // Dashboard
-    "canViewDashboard",
-    // Inventario
-    "canViewInventory",
-    // Ventas
-    "canViewSales",
-    // Clientes
-    "canViewClients",
-    // Reportes
-    "canViewReports",
-    // Órdenes
-    "canViewOrders"
+    "inventory:view",
+    "sales:view", "sales:create", "sales:applyDiscount",
+    "workshop:view", "workshop:createOrder"
   ]
 };
 
-/** Mapea roles del backend a permisos del diseño Figma. */
-function permissionsForBackendRole(role: string | undefined): Permission[] {
-  const map: Record<string, Permission[]> = {
-    superadmin: ROLE_PERMISSIONS.admin,
-    admin: ROLE_PERMISSIONS.admin,
-    supervisor: ROLE_PERMISSIONS.manager,
-    seller: ROLE_PERMISSIONS.manager,
-    cashier: ROLE_PERMISSIONS.cashier,
-  };
-  return map[role ?? ""] ?? ROLE_PERMISSIONS.viewer;
+// --- 3. Feature Flags Config ---
+const FEATURE_FLAGS: Record<FeatureFlag, boolean> = {
+  enableAdvancedReports: true,
+  enableWorkshopModule: true,
+  enableFinancialDashboard: true
+};
+
+// --- 4. Helpers y Lógica de Negocio ---
+
+export interface AuthState {
+  user: any | null;
+  role: UserRole | null;
+  permissions: Permission[];
+  branchId: number | null;
+  isAuthenticated: boolean;
 }
 
 export function useAuth() {
-  const { data: currentUser } = useCurrentUser();
-  const backendRole = currentUser?.role;
-
-  const user: User | null = currentUser
-    ? {
-        id: String(currentUser.id),
-        username: currentUser.username,
-        fullName: currentUser.username,
-        email: currentUser.email,
-        role: (["admin", "manager", "cashier", "viewer"].includes(backendRole ?? "")
-          ? (backendRole as UserRole)
-          : "viewer"),
-        permissions: permissionsForBackendRole(backendRole),
-        isActive: currentUser.is_active,
-        createdAt: new Date().toISOString(),
-      }
-    : null;
+  const { data: currentUser, isLoading } = useCurrentUser();
+  
+  const state: AuthState = useMemo(() => {
+    const role = currentUser?.role as UserRole;
+    return {
+      user: currentUser,
+      role: role || null,
+      permissions: role ? ROLE_PERMISSIONS[role] || [] : [],
+      branchId: currentUser?.branch_id || null,
+      isAuthenticated: !!getAccessToken() && !!currentUser,
+    };
+  }, [currentUser]);
 
   const hasPermission = (permission: Permission): boolean => {
-    if (!user || !user.isActive) return false;
-    return user.permissions.includes(permission);
+    return state.permissions.includes(permission);
   };
 
-  const hasAnyPermission = (permissions: Permission[]): boolean => {
-    if (!user || !user.isActive) return false;
-    return permissions.some((permission) => user.permissions.includes(permission));
+  const hasAnyPermission = (perms: Permission[]): boolean => {
+    return perms.some(p => state.permissions.includes(p));
   };
 
-  const hasAllPermissions = (permissions: Permission[]): boolean => {
-    if (!user || !user.isActive) return false;
-    return permissions.every((permission) => user.permissions.includes(permission));
+  const isFeatureEnabled = (flag: FeatureFlag): boolean => {
+    return FEATURE_FLAGS[flag] || false;
   };
 
-  const canAccessRoute = (path: string): boolean => {
-    const routePermissions: Record<string, Permission[]> = {
-      "/": ["canViewDashboard"],
-      "/inventory": ["canViewInventory"],
-      "/sales": ["canViewSales"],
-      "/clients": ["canViewClients"],
-      "/reports": ["canViewReports"],
-      "/purchase-orders": ["canViewOrders"],
-      "/audit-logs": ["canViewAuditLogs"],
-      "/backups": ["canManageBackups"],
-      "/users": ["canManageUsers"],
-    };
-
-    const requiredPermissions = routePermissions[path];
-    if (!requiredPermissions) return true;
-    return hasAnyPermission(requiredPermissions);
+  // Branch-aware logic
+  const canAccessBranch = (targetBranchId: number): boolean => {
+    if (state.role === "superadmin" || state.role === "admin") return true;
+    return state.branchId === targetBranchId;
   };
 
-  const getRoleDisplayName = (role: UserRole): string => {
-    const roleNames: Record<UserRole, string> = {
-      admin: "Administrador",
-      manager: "Gerente",
-      cashier: "Cajero",
-      viewer: "Visualizador",
-    };
-    return roleNames[role];
-  };
-
-  const getRoleColor = (role: UserRole): string => {
-    const roleColors: Record<UserRole, string> = {
-      admin: "bg-purple-100 text-purple-800",
-      manager: "bg-blue-100 text-blue-800",
-      cashier: "bg-green-100 text-green-800",
-      viewer: "bg-gray-100 text-gray-800",
-    };
-    return roleColors[role];
+  const canViewFinancialData = (): boolean => {
+    return hasAnyPermission(["reports:financial", "inventory:viewCosts"]);
   };
 
   return {
-    user,
-    isAuthenticated: !!getAccessToken(),
+    ...state,
+    isLoading,
     hasPermission,
     hasAnyPermission,
-    hasAllPermissions,
-    canAccessRoute,
-    getRoleDisplayName,
-    getRoleColor,
-    logout: async () => {
-      const { logoutSession } = await import("../api/client");
-      await logoutSession();
-      window.location.href = "/login";
-    },
+    isFeatureEnabled,
+    canAccessBranch,
+    canViewFinancialData,
+    debug: process.env.NODE_ENV === "development" ? {
+      ...state,
+      missingPermissions: (required: Permission[]) => required.filter(p => !state.permissions.includes(p))
+    } : null
   };
 }
 
-// Componente ProtectedRoute
+// --- 5. Componentes Guardias (UI Guards) ---
+
+interface CanProps {
+  permission?: Permission;
+  permissions?: Permission[];
+  any?: boolean;
+  feature?: FeatureFlag;
+  fallback?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+export function Can({ 
+  permission, 
+  permissions, 
+  any = false, 
+  feature, 
+  fallback = null, 
+  children 
+}: CanProps) {
+  const { hasPermission, hasAnyPermission, isFeatureEnabled } = useAuth();
+
+  if (feature && !isFeatureEnabled(feature)) return <>{fallback}</>;
+
+  if (permission && !hasPermission(permission)) return <>{fallback}</>;
+
+  if (permissions) {
+    const hasAccess = any ? hasAnyPermission(permissions) : permissions.every(p => hasPermission(p));
+    if (!hasAccess) return <>{fallback}</>;
+  }
+
+  return <>{children}</>;
+}
+
+// --- 6. Route Guards ---
+
 export interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredPermissions?: Permission[];
-  requireAll?: boolean;
+  requiredPermission?: Permission;
+  requiredRole?: UserRole;
   fallback?: React.ReactNode;
 }
 
 export function ProtectedRoute({
   children,
-  requiredPermissions = [],
-  requireAll = false,
-  fallback = <div className="p-8 text-center">Acceso denegado</div>,
+  requiredPermission,
+  requiredRole,
+  fallback = <div className="p-8 text-center text-red-600 font-bold">403 - Acceso Denegado</div>,
 }: ProtectedRouteProps) {
   const location = useLocation();
-  const { hasAnyPermission, hasAllPermissions } = useAuth();
+  const { isAuthenticated, isLoading, role, hasPermission } = useAuth();
 
-  if (!getAccessToken()) {
+  if (isLoading) return <div className="p-8 text-center">Cargando...</div>;
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiredPermissions.length === 0) {
-    return <>{children}</>;
+  if (requiredRole && role !== requiredRole && role !== "superadmin") {
+    return <>{fallback}</>;
   }
 
-  const hasAccess = requireAll
-    ? hasAllPermissions(requiredPermissions)
-    : hasAnyPermission(requiredPermissions);
+  if (requiredPermission && !hasPermission(requiredPermission)) {
+    return <>{fallback}</>;
+  }
 
-  return hasAccess ? <>{children}</> : <>{fallback}</>;
-}
-
-// Hook para verificar permisos específicos de módulos
-export function useModulePermissions() {
-  const { hasPermission } = useAuth();
-
-  return {
-    // Dashboard
-    canViewDashboard: hasPermission("canViewDashboard"),
-    
-    // Inventario
-    canViewInventory: hasPermission("canViewInventory"),
-    canEditInventory: hasPermission("canEditInventory"),
-    canDeleteInventory: hasPermission("canDeleteInventory"),
-    
-    // Ventas
-    canViewSales: hasPermission("canViewSales"),
-    canCreateSales: hasPermission("canCreateSales"),
-    canVoidSales: hasPermission("canVoidSales"),
-    
-    // Reportes
-    canViewReports: hasPermission("canViewReports"),
-    canCreateReports: hasPermission("canCreateReports"),
-    
-    // Clientes
-    canViewClients: hasPermission("canViewClients"),
-    canEditClients: hasPermission("canEditClients"),
-    canDeleteClients: hasPermission("canDeleteClients"),
-    
-    // Órdenes
-    canViewOrders: hasPermission("canViewOrders"),
-    canCreateOrders: hasPermission("canCreateOrders"),
-    canApproveOrders: hasPermission("canApproveOrders"),
-    
-    // Sistema
-    canViewAuditLogs: hasPermission("canViewAuditLogs"),
-    canManageBackups: hasPermission("canManageBackups"),
-    canManageUsers: hasPermission("canManageUsers"),
-    canManageSettings: hasPermission("canManageSettings")
-  };
-}
-
-// Utilidades para verificación de permisos en componentes
-export function withPermission<P extends object>(
-  Component: React.ComponentType<P>,
-  requiredPermissions: Permission[],
-  requireAll: boolean = false
-) {
-  return function PermissionWrapper(props: P) {
-    return (
-      <ProtectedRoute 
-        requiredPermissions={requiredPermissions} 
-        requireAll={requireAll}
-      >
-        <Component {...props} />
-      </ProtectedRoute>
-    );
-  };
+  return <>{children}</>;
 }

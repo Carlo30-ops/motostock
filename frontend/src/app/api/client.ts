@@ -245,14 +245,16 @@ export function mapSaleFromApi(raw: ApiSaleRaw): Sale {
 }
 
 export interface ApiOrderItemRaw {
-  id?: number;
+  id: number;
   product_id: number;
   quantity: number;
+  received_quantity: number;
   unit_cost: number;
 }
 
 export interface ApiOrderRaw {
   id: number;
+  branch_id: number;
   supplier: string;
   supplier_id?: number | null;
   status: string;
@@ -260,20 +262,33 @@ export interface ApiOrderRaw {
   total: number;
   notes?: string;
   items: ApiOrderItemRaw[];
+  approved_by_id?: number | null;
+  approved_at?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export function mapOrderFromApi(raw: ApiOrderRaw): PurchaseOrder {
   return {
     id: String(raw.id),
-    supplierId: raw.supplier_id != null ? String(raw.supplier_id) : raw.supplier,
+    branchId: raw.branch_id,
+    supplierId: raw.supplier_id != null ? String(raw.supplier_id) : "unknown",
+    supplier: raw.supplier,
     items: (raw.items ?? []).map((item) => ({
+      id: String(item.id),
       productId: String(item.product_id),
       quantity: item.quantity,
-      cost: item.unit_cost,
+      receivedQuantity: item.received_quantity,
+      unitCost: item.unit_cost,
     })),
     status: raw.status as PurchaseOrder["status"],
     date: String(raw.date).slice(0, 10),
     total: raw.total,
+    notes: raw.notes,
+    approvedById: raw.approved_by_id || undefined,
+    approvedAt: raw.approved_at || undefined,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
   };
 }
 
@@ -402,7 +417,7 @@ export function mapOrderToApiPayload(data: {
   supplier: string;
   supplierId?: string;
   date: string;
-  items: { productId: string; quantity: number; cost: number }[];
+  items: { productId: string; quantity: number; unitCost: number }[];
   notes?: string;
 }): Record<string, unknown> {
   const payload: Record<string, unknown> = {
@@ -411,7 +426,7 @@ export function mapOrderToApiPayload(data: {
     items: data.items.map((item) => ({
       product_id: Number(item.productId),
       quantity: item.quantity,
-      unit_cost: item.cost,
+      unit_cost: item.unitCost,
     })),
     notes: data.notes ?? "",
   };
@@ -808,11 +823,14 @@ export const api = {
       .patch<ApiWorkOrderRaw>(`/workshop/work-orders/${id}/status`, { status })
       .then((res) => mapWorkOrderFromApi(res.data)),
 
+  getOrder: (id: string) =>
+    apiClient.get<ApiOrderRaw>(`/orders/${id}`).then((res) => mapOrderFromApi(res.data)),
+
   createOrder: (data: {
     supplier: string;
     supplierId?: string;
     date: string;
-    items: { productId: string; quantity: number; cost: number }[];
+    items: { productId: string; quantity: number; unitCost: number }[];
     notes?: string;
   }) =>
     requestWithOfflineQueue(
@@ -822,11 +840,47 @@ export const api = {
           .then((res) => mapOrderFromApi(res.data)),
       { endpoint: "/orders/", method: "POST", payload: mapOrderToApiPayload(data) }
     ),
+
+  submitOrder: (id: string) =>
+    apiClient
+      .post<ApiOrderRaw>(`/orders/${id}/submit`)
+      .then((res) => mapOrderFromApi(res.data)),
+
+  approveOrder: (id: string) =>
+    apiClient
+      .post<ApiOrderRaw>(`/orders/${id}/approve`)
+      .then((res) => mapOrderFromApi(res.data)),
+
+  rejectOrder: (id: string, notes?: string) =>
+    apiClient
+      .post<ApiOrderRaw>(`/orders/${id}/reject`, { status: "rejected", notes })
+      .then((res) => mapOrderFromApi(res.data)),
+
+  markAsOrdered: (id: string) =>
+    apiClient
+      .post<ApiOrderRaw>(`/orders/${id}/order`)
+      .then((res) => mapOrderFromApi(res.data)),
+
+  receiveItems: (id: string, items: { productId: string; quantity: number }[]) =>
+    apiClient
+      .post<ApiOrderRaw>(`/orders/${id}/receive`, {
+        items: items.map((i) => ({
+          product_id: Number(i.productId),
+          quantity: i.quantity,
+        })),
+      })
+      .then((res) => mapOrderFromApi(res.data)),
+
+  cancelOrder: (id: string) =>
+    apiClient
+      .delete<ApiOrderRaw>(`/orders/${id}`)
+      .then((res) => mapOrderFromApi(res.data)),
+
   updateOrderStatus: (id: string, status: PurchaseOrder["status"]) =>
     requestWithOfflineQueue(
       () =>
         apiClient
-          .patch<ApiOrderRaw>(`/orders/${id}/status`, { status } satisfies UpdateOrderStatusPayload)
+          .patch<ApiOrderRaw>(`/orders/${id}/status`, { status })
           .then((res) => mapOrderFromApi(res.data)),
       { endpoint: `/orders/${id}/status`, method: "PATCH", payload: { status } }
     ),

@@ -35,12 +35,13 @@ def login_for_access_token(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Usuario o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role, "branch_id": user.branch_id}, expires_delta=access_token_expires
+        data={"sub": user.username, "role": user.role, "branch_id": user.branch_id, "organization_id": user.organization_id}, 
+        expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer", "role": user.role}
 
@@ -57,20 +58,22 @@ def login_with_refresh_token(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Usuario o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    user_role = user.role
     tokens = create_user_tokens(user, db)
     return {
         "access_token": tokens["access_token"],
         "refresh_token": tokens["refresh_token"],
         "token_type": tokens["token_type"],
-        "role": user.role,
+        "role": user_role,
     }
 
 
 @router.post("/refresh", response_model=schemas.Token)
-def refresh_access_token(payload: schemas.RefreshTokenRequest, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def refresh_access_token(request: Request, payload: schemas.RefreshTokenRequest, db: Session = Depends(get_db)):
     tokens = RefreshTokenService.refresh_access_token(payload.refresh_token, db)
     if not tokens:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token inválido")
@@ -101,7 +104,8 @@ def login_with_pin(request: Request, payload: schemas.PinLogin, db: Session = De
         )
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role, "branch_id": user.branch_id}, expires_delta=access_token_expires
+        data={"sub": user.username, "role": user.role, "branch_id": user.branch_id, "organization_id": user.organization_id}, 
+        expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer", "role": user.role}
 

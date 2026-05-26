@@ -166,7 +166,28 @@ class SecurityLogger:
         )
 
 
+class AuditLogger:
+    """Logger para auditoría de acciones de usuarios."""
+    
+    def __init__(self):
+        self.logger = get_logger("audit.actions")
+    
+    def log_action(self, actor_id: int, target_id: Any, action: str, 
+                   resource: str, branch_id: int, details: Dict[str, Any] = None) -> None:
+        """Registra una acción de auditoría."""
+        self.logger.info(
+            "Audit action recorded",
+            actor_id=actor_id,
+            target_id=target_id,
+            action=action,
+            resource=resource,
+            branch_id=branch_id,
+            details=details or {}
+        )
+
+
 # Instancias globales para uso fácil
 request_logger = RequestLogger()
 db_logger = DatabaseLogger()
 security_logger = SecurityLogger()
+audit_logger = AuditLogger()

@@ -1,4 +1,3 @@
-# Fase 1.1: ventas y combos protegidos con autenticación JWT (rol cashier o superior).
 from datetime import date
 from typing import Annotated
 
@@ -7,9 +6,15 @@ from sqlalchemy.orm import Session
 
 from app import schemas, models
 from app.database import get_db
-from app.services.auth import require_minimum_role, get_current_active_user, has_role_access
+from app.services.auth import (
+    require_role, 
+    get_current_active_user, 
+    has_role_access,
+    require_supervisor
+)
+from app.logging_config import audit_logger
 
-router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
+router = APIRouter(dependencies=[Depends(require_role("cashier"))])
 
 MONEY_TOLERANCE = 0.01
 
@@ -37,11 +42,24 @@ def get_sales(
     skip: int = 0, 
     limit: int = 100
 ):
-    # Mecánicos no pueden ver ventas
+    """
+    Listar ventas.
+    Mechanic: Prohibido.
+    Accountant/Cashier/Supervisor: Solo su propia sucursal.
+    Admin+: Todas las sucursales.
+    """
     if current_user.role == "mechanic":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Mechanics cannot view sales")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Los mecánicos no tienen permiso para ver ventas"
+        )
         
-    return db.query(models.Sale).filter(models.Sale.branch_id == current_user.branch_id).offset(skip).limit(limit).all()
+    query = db.query(models.Sale)
+    
+    if not has_role_access(current_user.role, "admin"):
+        query = query.filter(models.Sale.branch_id == current_user.branch_id)
+        
+    return query.offset(skip).limit(limit).all()
 
 
 @router.post("/", response_model=schemas.SaleOut, status_code=status.HTTP_201_CREATED)
@@ -50,9 +68,25 @@ def create_sale(
     current_user: Annotated[models.User, Depends(get_current_active_user)],
     db: Session = Depends(get_db)
 ):
-    # Solo cajeros, vendedores y superiores pueden crear ventas (mecánicos no)
-    if not has_role_access(current_user.role, "cashier") or current_user.role == "mechanic":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to create sales")
+    """
+    Crear venta.
+    Accountant/Mechanic: Prohibido.
+    Cashier: Solo su propia sucursal, descuento limitado por max_discount.
+    Supervisor+: Solo su propia sucursal (si no es admin), descuento libre.
+    """
+    if current_user.role in ["mechanic", "accountant"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Su rol no tiene permiso para crear ventas"
+        )
+
+    # Validar descuento máximo para Cajeros
+    if current_user.role == "cashier":
+        if sale.discount_pct > current_user.max_discount:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Descuento excedido. Su máximo permitido es {current_user.max_discount}%"
+            )
 
     # Check for idempotency if offline_id is provided
     if sale.offline_id:
@@ -72,14 +106,15 @@ def create_sale(
         if item.quantity <= 0:
             raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a cero")
 
-        product = db.query(models.Product).filter(
+        # Bloqueamos la fila del producto para asegurar que el stock no cambie durante la transacción
+        product = db.query(models.Product).with_for_update().filter(
             models.Product.id == item.product_id,
             models.Product.branch_id == current_user.branch_id
         ).first()
         if not product:
-            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
+            raise HTTPException(status_code=404, detail=f"Producto {item.product_id} no encontrado en esta sucursal")
         if product.stock < item.quantity:
-            raise HTTPException(status_code=400, detail=f"Not enough stock for {product.name}")
+            raise HTTPException(status_code=400, detail=f"Stock insuficiente para {product.name} (Disponible: {product.stock})")
 
         expected_unit_price = _money(product.sale_price * _volume_discount_multiplier(item.quantity))
         _assert_money_matches(
@@ -115,6 +150,7 @@ def create_sale(
 
     # Create sale record
     db_sale = models.Sale(
+        branch_id=current_user.branch_id,
         offline_id=sale.offline_id,
         client_id=sale.client_id,
         date=sale.date,
@@ -132,11 +168,12 @@ def create_sale(
         
         # Automation 1: Auto-generate draft purchase order if stock hits 0
         if product.stock <= 0:
-            supplier = product.supplier or "Unknown Supplier"
-            # Check if pending order already exists for this supplier
+            supplier_name = product.supplier or "Unknown Supplier"
+            # Check if pending order already exists for this supplier in this branch
             existing_order = db.query(models.PurchaseOrder).filter(
-                models.PurchaseOrder.supplier == supplier,
-                models.PurchaseOrder.status == models.OrderStatus.pending
+                models.PurchaseOrder.supplier == supplier_name,
+                models.PurchaseOrder.status == models.PurchaseOrderStatus.draft,
+                models.PurchaseOrder.branch_id == current_user.branch_id
             ).first()
             
             if existing_order:
@@ -160,8 +197,9 @@ def create_sale(
             else:
                 # Create new draft order
                 new_order = models.PurchaseOrder(
-                    supplier=supplier,
-                    status=models.OrderStatus.pending,
+                    branch_id=current_user.branch_id,
+                    supplier=supplier_name,
+                    status=models.PurchaseOrderStatus.draft,
                     date=sale.date,
                     total=product.cost_price * product.reorder_threshold,
                     notes="Auto-generated due to zero stock"
@@ -203,16 +241,37 @@ def create_sale(
 
     db.commit()
     db.refresh(db_sale)
+
+    audit_logger.log_action(
+        actor_id=current_user.id,
+        target_id=db_sale.id,
+        action="create_sale",
+        resource="sales",
+        branch_id=current_user.branch_id,
+        details={"total": total, "client_id": sale.client_id}
+    )
+
     return db_sale
 
 
 @router.get("/combos", response_model=list[schemas.ComboOut])
-def get_combos(db: Session = Depends(get_db)):
+def get_combos(
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
+    """Lectura de combos prohibida para Mechanic."""
+    if current_user.role == "mechanic":
+         raise HTTPException(status_code=403, detail="Acceso denegado")
     return db.query(models.Combo).all()
 
 
 @router.post("/combos", response_model=schemas.ComboOut, status_code=status.HTTP_201_CREATED)
-def create_combo(combo: schemas.ComboCreate, db: Session = Depends(get_db)):
+def create_combo(
+    combo: schemas.ComboCreate, 
+    current_user: Annotated[models.User, Depends(require_supervisor)],
+    db: Session = Depends(get_db)
+):
+    """Solo Supervisor+ puede crear combos."""
     db_combo = models.Combo(name=combo.name, price=combo.price)
     db.add(db_combo)
     db.flush()
@@ -227,4 +286,13 @@ def create_combo(combo: schemas.ComboCreate, db: Session = Depends(get_db)):
         
     db.commit()
     db.refresh(db_combo)
+
+    audit_logger.log_action(
+        actor_id=current_user.id,
+        target_id=db_combo.id,
+        action="create_combo",
+        resource="sales",
+        branch_id=current_user.branch_id
+    )
+
     return db_combo

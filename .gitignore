@@ -50,5 +50,12 @@ pnpm-debug.log*
 *.pem
 *.key
 *.cert
+.antigravitycli/
 
 backups/
+uploads/
+logs/
+*.db
+backend/*.db
+frontend/dist/
+frontend/node_modules/

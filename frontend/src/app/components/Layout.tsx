@@ -23,45 +23,32 @@ import { useLanguage } from "../lib/i18n";
 import { LanguageToggle } from "./LanguageToggle";
 import { store } from "../lib/store";
 import { useOfflineSyncStatus } from "../offline/useOfflineSyncStatus";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-import { hasRoleAccess } from "../lib/rbac";
-import { SessionTimeout } from "./SessionTimeout";
-import { OfflineStatusBar } from "./OfflineStatusBar";
-import { useAuth } from "../lib/auth-refresh-client";
+import { useAuth, Permission } from "../lib/auth-rbac";
 
 export function Layout() {
   const tabletMode = store((state) => state.tabletMode);
   const location = useLocation();
   const { t } = useLanguage();
-  const { logout } = useAuth();
-  const { data: currentUser } = useCurrentUser();
-  const role = currentUser?.role;
+  const { logout, hasPermission } = useAuth();
   const [showQueueDetails, setShowQueueDetails] = useState(false);
   const { pendingCount, pendingItems, isOnline, isSyncing, syncNow, clearQueue, removePendingItem } = useOfflineSyncStatus();
 
   const navItems = [
-    { path: "/", icon: LayoutDashboard, label: t("nav.dashboard"), minRole: "cashier" },
-    { path: "/inventory", icon: Package, label: t("nav.inventory"), minRole: "cashier" },
-    { path: "/sales", icon: ShoppingCart, label: t("nav.sales"), minRole: "cashier" },
-    { path: "/credit", icon: CreditCard, label: t("nav.credit"), minRole: "supervisor" },
-    { path: "/clients", icon: Users, label: t("nav.clients"), minRole: "cashier" },
-    { path: "/workshop", icon: Wrench, label: t("nav.workshop"), minRole: "mechanic" },
-    { path: "/reports", icon: FileText, label: t("nav.reports"), minRole: "accountant" },
-    { path: "/purchase-orders", icon: Truck, label: t("nav.orders"), minRole: "accountant" },
-    { path: "/suppliers", icon: Briefcase, label: t("nav.suppliers"), minRole: "supervisor" },
-    { path: "/admin/users", icon: Users, label: "Usuarios", minRole: "admin" },
-    { path: "/profile", icon: UserCircle, label: t("nav.profile"), minRole: "cashier" },
-    { path: "/admin/dian-config", icon: Settings, label: "DIAN Config", minRole: "admin" },
+    { path: "/", icon: LayoutDashboard, label: t("nav.dashboard") },
+    { path: "/inventory", icon: Package, label: t("nav.inventory"), permission: "inventory:view" as Permission },
+    { path: "/sales", icon: ShoppingCart, label: t("nav.sales"), permission: "sales:view" as Permission },
+    { path: "/credit", icon: CreditCard, label: t("nav.credit"), permission: "sales:view" as Permission },
+    { path: "/clients", icon: Users, label: t("nav.clients"), permission: "sales:view" as Permission },
+    { path: "/workshop", icon: Wrench, label: t("nav.workshop"), permission: "workshop:view" as Permission },
+    { path: "/reports", icon: FileText, label: t("nav.reports"), permission: "reports:view" as Permission },
+    { path: "/purchase-orders", icon: Truck, label: t("nav.orders"), permission: "reports:view" as Permission },
+    { path: "/suppliers", icon: Briefcase, label: t("nav.suppliers"), permission: "inventory:edit" as Permission },
+    { path: "/admin/users", icon: Users, label: "Usuarios", permission: "users:manage" as Permission },
+    { path: "/profile", icon: UserCircle, label: t("nav.profile") },
+    { path: "/admin/dian-config", icon: Settings, label: "DIAN Config", permission: "settings:edit" as Permission },
   ].filter((item) => {
-    if (role === "mechanic") {
-      // Mecánico solo ve taller, dashboard (dashboard filtrará data) y perfil
-      return ["/", "/workshop", "/profile"].includes(item.path);
-    }
-    if (role === "accountant") {
-      // Contador solo ve lectura de inventario, ventas, reportes, órdenes y perfil
-      return ["/", "/inventory", "/sales", "/reports", "/purchase-orders", "/profile"].includes(item.path);
-    }
-    return hasRoleAccess(role, item.minRole);
+    if (!item.permission) return true;
+    return hasPermission(item.permission);
   });
 
   const handleLogout = () => {

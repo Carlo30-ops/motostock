@@ -67,7 +67,9 @@ class RefreshTokenService:
             return None
         
         # Obtener usuario
-        user = db.query(User).filter(User.id == db_token.user_id, User.is_active == True).first()
+        from app.services.tenant import bypass_tenant_context
+        with bypass_tenant_context("Resolve user from refresh token", "system"):
+            user = db.query(User).filter(User.id == db_token.user_id, User.is_active == True).first()
         
         return user
     
@@ -106,13 +108,21 @@ class RefreshTokenService:
         if not user:
             return None
         
+        # Guardar atributos del usuario localmente antes del commit de la BD
+        user_id = user.id
+        username = user.username
+        email = user.email
+        role = user.role
+        branch_id = user.branch_id
+        organization_id = user.organization_id
+
         # Crear nuevo access token
         access_token = RefreshTokenService.create_access_token(
-            data={"sub": user.username, "user_id": user.id, "role": user.role}
+            data={"sub": username, "user_id": user_id, "role": role, "branch_id": branch_id, "organization_id": organization_id}
         )
         
         # Opcional: generar nuevo refresh token (security best practice)
-        new_refresh_token = RefreshTokenService.create_refresh_token(user.id, db)
+        new_refresh_token = RefreshTokenService.create_refresh_token(user_id, db)
         
         return {
             "access_token": access_token,
@@ -120,10 +130,10 @@ class RefreshTokenService:
             "token_type": "bearer",
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "role": user.role
+                "id": user_id,
+                "username": username,
+                "email": email,
+                "role": role
             }
         }
     
@@ -151,10 +161,18 @@ class RefreshTokenService:
 # Funciones de ayuda para endpoints de autenticación
 def create_user_tokens(user: User, db: Session) -> Dict[str, Any]:
     """Crea access y refresh tokens para un usuario"""
+    # Guardar atributos localmente antes de cualquier commit de BD que pueda expirar la instancia
+    user_id = user.id
+    username = user.username
+    email = user.email
+    role = user.role
+    branch_id = user.branch_id
+    organization_id = user.organization_id
+
     access_token = RefreshTokenService.create_access_token(
-        data={"sub": user.username, "user_id": user.id, "role": user.role, "branch_id": user.branch_id}
+        data={"sub": username, "user_id": user_id, "role": role, "branch_id": branch_id, "organization_id": organization_id}
     )
-    refresh_token = RefreshTokenService.create_refresh_token(user.id, db)
+    refresh_token = RefreshTokenService.create_refresh_token(user_id, db)
     
     return {
         "access_token": access_token,
@@ -162,11 +180,11 @@ def create_user_tokens(user: User, db: Session) -> Dict[str, Any]:
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "role": user.role,
-            "branch_id": user.branch_id
+            "id": user_id,
+            "username": username,
+            "email": email,
+            "role": role,
+            "branch_id": branch_id
         }
     }
 
@@ -195,7 +213,9 @@ def get_current_user_from_token(token: str, db: Session) -> Optional[User]:
     except JWTError:
         return None
     
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    from app.services.tenant import bypass_tenant_context
+    with bypass_tenant_context("Resolve user from refresh auth token", "system"):
+        user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     return user
 
 
@@ -206,5 +226,3 @@ def update_refresh_token_usage(token: str, db: Session):
     if db_token:
         db_token.last_used_at = datetime.now(timezone.utc)
         db.commit()
-t()
-  db.commit()

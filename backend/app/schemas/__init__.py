@@ -28,6 +28,22 @@ class UserCreate(BaseModel):
     username: str
     email: str
     password: str
+    role: str = "cashier"
+    branch_id: Optional[int] = None
+    max_discount: float = 0.0
+
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    role: Optional[str] = None
+    branch_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    max_discount: Optional[float] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: Optional[str] = None  # Requerido si el usuario cambia la propia
+    new_password: str
 
 
 class UserOut(BaseModel):
@@ -36,7 +52,10 @@ class UserOut(BaseModel):
     username: str
     email: str
     role: str
+    branch_id: int
+    max_discount: float
     is_active: bool
+    created_at: datetime
 
 
 class PinLogin(BaseModel):
@@ -71,11 +90,30 @@ class ProductUpdate(BaseModel):
     reorder_threshold: Optional[int] = None
 
 
-class ProductOut(ProductCreate):
+class ProductOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    branch_id: int
+    code: str
+    name: str
+    category: str
+    brand: str
+    barcode: Optional[str] = None
+    supplier: Optional[str] = None
+    stock: int
+    sale_price: float
+    reorder_threshold: int
     created_at: datetime
     updated_at: datetime
+
+
+class ProductInternalOut(ProductOut):
+    cost_price: float
+
+
+class StockAdjustment(BaseModel):
+    quantity: int
+    reason: str
 
 
 # ─── Combo ────────────────────────────────────────────────────────────────────
@@ -253,6 +291,7 @@ class PurchaseOrderItemOut(BaseModel):
     id: int
     product_id: int
     quantity: int
+    received_quantity: int
     unit_cost: float
 
 
@@ -275,11 +314,24 @@ class PurchaseOrderOut(BaseModel):
     total: float
     notes: str
     items: list[PurchaseOrderItemOut]
+    approved_by_id: Optional[int] = None
+    approved_at: Optional[datetime] = None
     created_at: datetime
+    updated_at: datetime
+
+
+class PurchaseOrderReceiptItem(BaseModel):
+    product_id: int
+    quantity: int
+
+
+class PurchaseOrderReceipt(BaseModel):
+    items: list[PurchaseOrderReceiptItem]
 
 
 class PurchaseOrderStatusUpdate(BaseModel):
-    status: str   # "sent" | "received"
+    status: str
+    notes: Optional[str] = None
 
 
 # ─── Reports ──────────────────────────────────────────────────────────────────
@@ -321,6 +373,25 @@ class InventoryReport(BaseModel):
     total_units: int
     total_stock_value: float
     rows: list[InventoryReportRow]
+
+
+# ─── Inventory Audit ──────────────────────────────────────────────────────────
+
+class InventoryMovementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    product_id: int
+    branch_id: int
+    user_id: int
+    movement_type: str
+    quantity: int
+    previous_stock: int
+    new_stock: int
+    previous_cost: float
+    new_cost: float
+    reference_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    created_at: datetime
 
 
 # ─── Billing / DIAN (scaffold) ────────────────────────────────────────────────
@@ -509,6 +580,7 @@ class VehicleOut(VehicleCreate):
 
 class WorkOrderCreate(BaseModel):
     vehicle_id: int
+    mechanic_id: Optional[int] = None
     scheduled_date: date
     service_ids: list[int] = []
     notes: str = ""
@@ -523,6 +595,7 @@ class WorkOrderOut(BaseModel):
     id: int
     branch_id: int
     vehicle_id: int
+    mechanic_id: Optional[int] = None
     status: str
     scheduled_date: date
     notes: str

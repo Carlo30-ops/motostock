@@ -119,7 +119,7 @@ def test_sale_rejects_tampered_price(client: TestClient, auth_headers: dict):
         },
     )
     assert sale.status_code == 400
-    assert "Precio del producto" in sale.json()["detail"]
+    assert "Precio del producto" in sale.json()["error"]["message"]
 
     client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
 
@@ -154,7 +154,7 @@ def test_sale_rejects_tampered_total(client: TestClient, auth_headers: dict):
         },
     )
     assert sale.status_code == 400
-    assert "Total de la venta" in sale.json()["detail"]
+    assert "Total de la venta" in sale.json()["error"]["message"]
 
     client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
 
@@ -261,18 +261,28 @@ def test_credit_sale_rejects_insufficient_available_credit(client: TestClient, a
         },
     )
     assert sale.status_code == 400
-    assert "Cupo de credito insuficiente" in sale.json()["detail"]
+    assert "Cupo de credito insuficiente" in sale.json()["error"]["message"]
 
     client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
 
 
 def test_client_ledger_adjustment(client: TestClient, auth_headers: dict):
-    clients = client.get("/api/clients/", headers=auth_headers)
-    assert clients.status_code == 200
-    assert clients.json()
-
-    client_id = clients.json()[0]["id"]
-    before_balance = clients.json()[0]["credit_balance"]
+    import uuid
+    suffix = uuid.uuid4().hex[:8]
+    created_client = client.post(
+        "/api/clients/",
+        headers=auth_headers,
+        json={
+            "name": f"Ajuste QA {suffix}",
+            "phone": "3000000000",
+            "motorcycle_model": "Test Bike",
+            "credit_limit": 500000,
+            "credit_balance": 50000,
+        },
+    )
+    assert created_client.status_code == 201, created_client.text
+    client_id = created_client.json()["id"]
+    before_balance = created_client.json()["credit_balance"]
 
     entry = client.post(
         f"/api/clients/{client_id}/ledger",
@@ -313,7 +323,7 @@ def test_client_ledger_cannot_make_available_credit_negative(client: TestClient,
         json={"amount": -15000, "description": "Ajuste negativo test pytest"},
     )
     assert entry.status_code == 400
-    assert "no puede quedar negativo" in entry.json()["detail"]
+    assert "no puede quedar negativo" in entry.json()["error"]["message"]
 
 
 def test_client_ledger_cannot_exceed_credit_limit(client: TestClient, auth_headers: dict):
@@ -338,4 +348,4 @@ def test_client_ledger_cannot_exceed_credit_limit(client: TestClient, auth_heade
         json={"amount": 20000, "description": "Ajuste sobre limite test pytest"},
     )
     assert entry.status_code == 400
-    assert "cupo maximo" in entry.json()["detail"]
+    assert "cupo maximo" in entry.json()["error"]["message"]

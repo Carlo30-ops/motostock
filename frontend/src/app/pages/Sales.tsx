@@ -53,23 +53,34 @@ function apiErrorMessage(error: unknown): string {
   return "Error desconocido";
 }
 
+import { useAuth, Can } from "../lib/auth-rbac";
+import { NumericKeypad } from "../components/ui/NumericKeypad";
+
 export function Sales() {
   const { t, language } = useLanguage();
+  const { user: currentUser, hasPermission } = useAuth();
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: clients = [] } = useClients();
   const createSale = useCreateSale();
   const [cart, setCart] = useState<CartItem[]>([]);
   const tabletMode = store((state) => state.tabletMode);
   const setTabletMode = store((state) => state.setTabletMode);
-  
-  // Search state
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<"idle" | "success" | "error">("idle");
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Totals & Discounts
   const [discountPercent, setDiscountPercent] = useState(0);
+
+  // Validar descuento máximo para Cajeros en UI
+  const handleDiscountChange = (val: number) => {
+    let finalVal = val;
+    if (currentUser?.role === "cashier") {
+      const max = currentUser?.max_discount || 0;
+      if (finalVal > max) {
+        toast.warning(`Su descuento máximo permitido es ${max}%`);
+        finalVal = max;
+      }
+    }
+    setDiscountPercent(finalVal);
+  };
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "credit" | "nequi">("cash");
@@ -619,7 +630,16 @@ export function Sales() {
                 <div className="flex justify-between text-sm items-center">
                   <span className="text-muted-foreground flex items-center gap-2">
                     Descuento %
-                    <input type="number" min="0" max="100" value={discountPercent} onChange={e => setDiscountPercent(Number(e.target.value))} className="w-12 h-6 px-1 border border-border rounded text-center text-xs bg-background" />
+                    <Can permission="sales:applyDiscount" fallback={<span className="font-bold">{discountPercent}%</span>}>
+                      <input 
+                        type="number" 
+                        min="0" 
+                        max="100" 
+                        value={discountPercent} 
+                        onChange={e => handleDiscountChange(Number(e.target.value))} 
+                        className="w-12 h-6 px-1 border border-border rounded text-center text-xs bg-background" 
+                      />
+                    </Can>
                   </span>
                   <span className="text-destructive font-medium">-{formatCurrency(discountAmount)}</span>
                 </div>

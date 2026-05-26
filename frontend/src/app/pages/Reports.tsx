@@ -7,9 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card"
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { formatCurrency, formatDate } from "../lib/utils";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-import { hasRoleAccess } from "../lib/rbac";
-import { useSalesReport, useInventoryReport } from "../api/hooks";
+import { useAuth, Can } from "../lib/auth-rbac";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -30,8 +28,9 @@ function defaultDateRange() {
 
 export function Reports() {
   const { t } = useLanguage();
-  const { data: currentUser } = useCurrentUser();
-  const canSeeCosts = hasRoleAccess(currentUser?.role, "supervisor");
+  const { hasPermission } = useAuth();
+  const canSeeCosts = hasPermission("reports:financial");
+  const canExport = hasPermission("reports:export");
   const defaults = defaultDateRange();
   const [dateFrom, setDateFrom] = useState(defaults.from);
   const [dateTo, setDateTo] = useState(defaults.to);
@@ -164,7 +163,7 @@ export function Reports() {
           loading={salesLoading}
         />
 
-        {canSeeCosts && (
+        <Can permission="reports:financial">
           <>
             <Card>
               <CardHeader>
@@ -188,7 +187,7 @@ export function Reports() {
               </CardContent>
             </Card>
           </>
-        )}
+        </Can>
 
         <Card>
           <CardHeader>
@@ -206,14 +205,16 @@ export function Reports() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Top productos vendidos</CardTitle>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => exportReport("sales", "excel")}>
-                <FileDown className="w-4 h-4" /> Excel
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => exportReport("sales", "pdf")}>
-                <FileDown className="w-4 h-4" /> PDF
-              </Button>
-            </div>
+            <Can permission="reports:export">
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => exportReport("sales", "excel")}>
+                  <FileDown className="w-4 h-4" /> Excel
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => exportReport("sales", "pdf")}>
+                  <FileDown className="w-4 h-4" /> PDF
+                </Button>
+              </div>
+            </Can>
           </CardHeader>
           <CardContent>
             {salesLoading ? (
@@ -248,11 +249,13 @@ export function Reports() {
             <CardTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" /> Inventario
             </CardTitle>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => exportReport("inventory", "excel")}>
-                Excel
-              </Button>
-            </div>
+            <Can permission="reports:export">
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => exportReport("inventory", "excel")}>
+                  Excel
+                </Button>
+              </div>
+            </Can>
           </CardHeader>
           <CardContent>
             {inventoryLoading ? (
@@ -271,11 +274,11 @@ export function Reports() {
                     <p className="text-xl font-medium">{inventoryReport?.total_units ?? 0}</p>
                   </div>
                 </div>
-                {canSeeCosts && (
+                <Can permission="reports:financial">
                   <p className="text-sm mb-3">
                     Valor stock: {formatCurrency(inventoryReport?.total_stock_value ?? 0)}
                   </p>
-                )}
+                </Can>
                 <p className="text-sm font-medium mb-2">Baja rotación (muestra)</p>
                 {slowMovers.length === 0 ? (
                   <p className="text-muted-foreground text-sm">—</p>
@@ -305,7 +308,9 @@ export function Reports() {
                     <th className="text-left py-2">Producto</th>
                     <th className="text-right py-2">Cant.</th>
                     <th className="text-right py-2">Ingresos</th>
-                    {canSeeCosts && <th className="text-right py-2">Utilidad</th>}
+                    <Can permission="reports:financial">
+                      <th className="text-right py-2">Utilidad</th>
+                    </Can>
                   </tr>
                 </thead>
                 <tbody>
@@ -314,9 +319,9 @@ export function Reports() {
                       <td className="py-2">{row.product_name}</td>
                       <td className="text-right py-2">{row.quantity_sold}</td>
                       <td className="text-right py-2">{formatCurrency(row.revenue)}</td>
-                      {canSeeCosts && (
+                      <Can permission="reports:financial">
                         <td className="text-right py-2">{formatCurrency(row.profit)}</td>
-                      )}
+                      </Can>
                     </tr>
                   ))}
                 </tbody>

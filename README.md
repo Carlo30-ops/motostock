@@ -129,4 +129,4 @@ MotoStock incluye un contenedor automatizado (`motostock_backup`) que realiza co
 3.  **Firewall:** Configura las reglas de red en tu servidor para no exponer el puerto `5432` (PostgreSQL) ni el `6379` (Redis) públicamente. Solo los puertos del proxy Nginx (`80`/`443`) y el backend (`8000`) si es necesario, deben estar expuestos.
 4.  **2FA:** Se recomienda activar el Doble Factor de Autenticación (2FA) en la pantalla de Perfil para todos los usuarios con roles administrativos.
 
-Para detalles exhaustivos de despliegue, consulta la guía [DEPLOYMENT.md](file:///c:/Users/factu/OneDrive/Documentos%201/SCRIPS/GESTION-TALLER/motostock/DEPLOYMENT.md).
+Para detalles exhaustivos de despliegue, consulta la guía [DEPLOYMENT.md](docs/DEPLOYMENT.md).

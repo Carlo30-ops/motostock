@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.services.auth import require_minimum_role
+from app.services.auth import require_admin, require_cashier
 from app.services.dian_provider import get_dian_provider, serialize_payload
 from app.services.pdf_invoice import build_invoice_pdf
 
@@ -34,7 +34,7 @@ def _get_or_create_company_config(db: Session) -> models.CompanyConfig:
 @router.get("/company-config", response_model=schemas.CompanyConfigOut)
 def get_company_config(
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_minimum_role("admin")),
+    _: models.User = Depends(require_admin),
 ):
     return _get_or_create_company_config(db)
 
@@ -43,7 +43,7 @@ def get_company_config(
 def upsert_company_config(
     payload: schemas.CompanyConfigUpsert,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_minimum_role("admin")),
+    _: models.User = Depends(require_admin),
 ):
     config = _get_or_create_company_config(db)
     for field, value in payload.model_dump().items():
@@ -57,7 +57,7 @@ def upsert_company_config(
 def create_invoice(
     payload: schemas.InvoiceCreate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_minimum_role("cashier")),
+    _: models.User = Depends(require_cashier),
 ):
     config = _get_or_create_company_config(db)
     provider = get_dian_provider(config.provider)
@@ -96,7 +96,7 @@ def create_invoice(
 def get_invoice_status(
     invoice_id: int,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_minimum_role("cashier")),
+    _: models.User = Depends(require_cashier),
 ):
     invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
     if not invoice:
@@ -129,7 +129,7 @@ def get_invoice_status(
 def download_invoice_pdf(
     invoice_id: int,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_minimum_role("cashier")),
+    _: models.User = Depends(require_cashier),
 ):
     invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
     if not invoice:

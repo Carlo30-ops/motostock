@@ -11,8 +11,21 @@ from app.scheduler.reminders import start_scheduler, stop_scheduler
 from app.logging_config import setup_logging, request_logger
 from app.middleware.rate_limiter import limiter, _rate_limit_exceeded_handler, RateLimitExceeded
 from app.exceptions.handlers import setup_exception_handlers
+import app.services.tenant
 
-# Inicializar Sentry
+# Middleware para Headers de Seguridad
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+# Middleware para logging de requests
 if settings.SENTRY_DSN:
     try:
         import sentry_sdk
@@ -70,6 +83,22 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             raise
 
 
+# Middleware para limpiar y resetear ContextVars de tenant
+class TenantContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        from app.services.tenant import _tenant_id_ctx, _bypass_tenant_ctx
+        
+        # Iniciar limpios
+        tenant_token = _tenant_id_ctx.set(None)
+        bypass_token = _bypass_tenant_ctx.set(False)
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            _tenant_id_ctx.reset(tenant_token)
+            _bypass_tenant_ctx.reset(bypass_token)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Setup logging
@@ -98,6 +127,8 @@ setup_exception_handlers(app)
 
 # Agregar middleware de logging primero
 app.add_middleware(LoggingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(TenantContextMiddleware)
 
 # CORS config
 app.add_middleware(

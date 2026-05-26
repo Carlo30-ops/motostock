@@ -16,7 +16,14 @@ import { InventoryLabels } from "./pages/InventoryLabels";
 import { Profile } from "./pages/Profile";
 import { Suppliers } from "./pages/Suppliers";
 import { Workshop } from "./pages/Workshop";
+import { AdminUsers } from "./pages/AdminUsers";
 import { Login } from "./pages/Login";
+
+// Purchasing Module
+import { PurchaseOrdersPage } from "./modules/purchasing/pages/PurchaseOrdersPage";
+import { PurchaseOrderDetailPage } from "./modules/purchasing/pages/PurchaseOrderDetailPage";
+import { PurchaseOrderCreatePage } from "./modules/purchasing/pages/PurchaseOrderCreatePage";
+
 import { ProtectedRoute } from "./lib/auth-rbac";
 
 function ProtectedLayout() {
@@ -34,17 +41,67 @@ export const router = createBrowserRouter([
     Component: ProtectedLayout,
     children: [
       { index: true, Component: Dashboard },
-      { path: "inventory", Component: Inventory },
-      { path: "inventory/labels", Component: InventoryLabels },
-      { path: "sales", Component: Sales },
-      { path: "credit", Component: StoreCredit },
-      { path: "clients", Component: Clients },
-      { path: "reports", Component: Reports },
-      { path: "purchase-orders", Component: PurchaseOrders },
-      { path: "suppliers", Component: Suppliers },
-      { path: "workshop", Component: Workshop },
-      { path: "admin/backups", Component: AdminBackups },
-      { path: "admin/dian-config", Component: AdminDianConfig },
+      { 
+        path: "inventory", 
+        element: <ProtectedRoute requiredPermission="inventory:view"><Inventory /></ProtectedRoute> 
+      },
+      { 
+        path: "inventory/labels", 
+        element: <ProtectedRoute requiredPermission="inventory:view"><InventoryLabels /></ProtectedRoute> 
+      },
+      { 
+        path: "sales", 
+        element: <ProtectedRoute requiredPermission="sales:view"><Sales /></ProtectedRoute> 
+      },
+      { 
+        path: "credit", 
+        element: <ProtectedRoute requiredPermission="sales:view"><StoreCredit /></ProtectedRoute> 
+      },
+      { 
+        path: "clients", 
+        element: <ProtectedRoute requiredPermission="sales:view"><Clients /></ProtectedRoute> 
+      },
+      { 
+        path: "reports", 
+        element: <ProtectedRoute requiredPermission="reports:view"><Reports /></ProtectedRoute> 
+      },
+      { 
+        path: "purchase-orders", 
+        children: [
+          { 
+            index: true, 
+            element: <ProtectedRoute requiredPermission="orders:view"><PurchaseOrdersPage /></ProtectedRoute> 
+          },
+          { 
+            path: "new", 
+            element: <ProtectedRoute requiredPermission="orders:create"><PurchaseOrderCreatePage /></ProtectedRoute> 
+          },
+          { 
+            path: ":id", 
+            element: <ProtectedRoute requiredPermission="orders:view"><PurchaseOrderDetailPage /></ProtectedRoute> 
+          },
+        ]
+      },
+      { 
+        path: "suppliers", 
+        element: <ProtectedRoute requiredPermission="inventory:edit"><Suppliers /></ProtectedRoute> 
+      },
+      { 
+        path: "workshop", 
+        element: <ProtectedRoute requiredPermission="workshop:view"><Workshop /></ProtectedRoute> 
+      },
+      { 
+        path: "admin/users", 
+        element: <ProtectedRoute requiredPermission="users:manage"><AdminUsers /></ProtectedRoute> 
+      },
+      { 
+        path: "admin/backups", 
+        element: <ProtectedRoute requiredPermission="system:backups"><AdminBackups /></ProtectedRoute> 
+      },
+      { 
+        path: "admin/dian-config", 
+        element: <ProtectedRoute requiredPermission="settings:edit"><AdminDianConfig /></ProtectedRoute> 
+      },
       { path: "profile", Component: Profile },
     ],
   },

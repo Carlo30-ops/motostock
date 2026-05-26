@@ -40,7 +40,10 @@ function apiErrorMessage(error: unknown): string {
   return "Error desconocido";
 }
 
+import { useAuth, Can } from "../lib/auth-rbac";
+
 export function Workshop() {
+  const { user: currentUser } = useAuth();
   const { data: clients = [] } = useClients();
   const { data: serviceTemplates = [] } = useServiceTemplates();
   const { data: vehicles = [], isLoading: loadingVehicles } = useVehicles();
@@ -205,24 +208,28 @@ export function Workshop() {
             <p className="text-xs text-muted-foreground mb-4 line-clamp-2">{order.notes}</p>
           )}
           {column === "scheduled" && (
-            <Button
-              size="sm"
-              className="w-full text-xs"
-              variant="outline"
-              onClick={() => advanceOrderStatus(order.id, order.status)}
-            >
-              Iniciar Trabajo
-            </Button>
+            <Can permission="workshop:updateStatus">
+              <Button
+                size="sm"
+                className="w-full text-xs"
+                variant="outline"
+                onClick={() => advanceOrderStatus(order.id, order.status)}
+              >
+                Iniciar Trabajo
+              </Button>
+            </Can>
           )}
           {column === "in_progress" && (
-            <Button
-              size="sm"
-              className="w-full text-xs"
-              variant="primary"
-              onClick={() => advanceOrderStatus(order.id, order.status)}
-            >
-              Marcar Terminado
-            </Button>
+            <Can permission="workshop:updateStatus">
+              <Button
+                size="sm"
+                className="w-full text-xs"
+                variant="primary"
+                onClick={() => advanceOrderStatus(order.id, order.status)}
+              >
+                Marcar Terminado
+              </Button>
+            </Can>
           )}
           {column === "completed" && (
             <Button size="sm" className="w-full text-xs" variant="outline">
@@ -256,14 +263,18 @@ export function Workshop() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowVehicleModal(true)} variant="outline" size="sm">
-            <Bike className="w-4 h-4 mr-2" />
-            Nuevo Vehículo
-          </Button>
-          <Button onClick={() => setShowOrderModal(true)} size="sm" variant="primary">
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Orden
-          </Button>
+          <Can permission="workshop:createOrder">
+            <Button onClick={() => setShowVehicleModal(true)} variant="outline" size="sm">
+              <Bike className="w-4 h-4 mr-2" />
+              Nuevo Vehículo
+            </Button>
+          </Can>
+          <Can permission="workshop:createOrder">
+            <Button onClick={() => setShowOrderModal(true)} size="sm" variant="primary">
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Orden
+            </Button>
+          </Can>
         </div>
       </div>
 

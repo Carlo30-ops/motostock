@@ -13,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.tenant_mixin import TenantMixin
 
 
 # ─── Enums ────────────────────────────────────────────────────────────────────
@@ -24,10 +25,23 @@ class PaymentMethod(str, enum.Enum):
     nequi = "nequi"
 
 
-class OrderStatus(str, enum.Enum):
-    pending = "pending"
-    sent = "sent"
+class PurchaseOrderStatus(str, enum.Enum):
+    draft = "draft"
+    pending_approval = "pending_approval"
+    approved = "approved"
+    rejected = "rejected"
+    ordered = "ordered"
+    partially_received = "partially_received"
     received = "received"
+    cancelled = "cancelled"
+
+
+class MovementType(str, enum.Enum):
+    purchase = "purchase"
+    sale = "sale"
+    adjustment = "adjustment"
+    return_supplier = "return_supplier"
+    transfer = "transfer"
 
 
 class WorkOrderStatus(str, enum.Enum):
@@ -43,9 +57,37 @@ class DianStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+# ─── Organization (SaaS Tenant) ───────────────────────────────────────────────
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    uuid: Mapped[str] = mapped_column(String(36), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    plan_tier: Mapped[str] = mapped_column(String(20), default="basic", nullable=False)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    branches: Mapped[list["Branch"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    users: Mapped[list["User"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    products: Mapped[list["Product"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    clients: Mapped[list["Client"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    suppliers: Mapped[list["Supplier"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    sales: Mapped[list["Sale"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    purchase_orders: Mapped[list["PurchaseOrder"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    work_orders: Mapped[list["WorkOrder"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    inventory_movements: Mapped[list["InventoryMovement"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+
+
 # ─── Branch ───────────────────────────────────────────────────────────────────
 
-class Branch(Base):
+class Branch(Base, TenantMixin):
     __tablename__ = "branches"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -55,17 +97,19 @@ class Branch(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="branches")
     users: Mapped[list["User"]] = relationship(back_populates="branch")
     products: Mapped[list["Product"]] = relationship(back_populates="branch")
     sales: Mapped[list["Sale"]] = relationship(back_populates="branch")
     purchase_orders: Mapped[list["PurchaseOrder"]] = relationship(back_populates="branch")
     vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="branch")
     work_orders: Mapped[list["WorkOrder"]] = relationship(back_populates="branch")
+    inventory_movements: Mapped[list["InventoryMovement"]] = relationship(back_populates="branch")
 
 
 # ─── User (auth) ──────────────────────────────────────────────────────────────
 
-class User(Base):
+class User(Base, TenantMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -75,19 +119,24 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     pin_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, index=True)
     role: Mapped[str] = mapped_column(String(20), default="cashier", nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_discount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     totp_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     totp_backup_codes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     totp_enabled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="users")
     branch: Mapped["Branch"] = relationship(back_populates="users")
 
 
 # ─── Product / Inventory ──────────────────────────────────────────────────────
 
-class Product(Base):
+class Product(Base, TenantMixin):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -105,16 +154,50 @@ class Product(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="products")
     branch: Mapped["Branch"] = relationship(back_populates="products")
     sale_items: Mapped[list["SaleItem"]] = relationship(back_populates="product")
     order_items: Mapped[list["PurchaseOrderItem"]] = relationship(back_populates="product")
     combo_items: Mapped[list["ComboItem"]] = relationship(back_populates="product")
+    inventory_movements: Mapped[list["InventoryMovement"]] = relationship(back_populates="product")
+
+
+# ─── Inventory Audit ──────────────────────────────────────────────────────────
+
+class InventoryMovement(Base, TenantMixin):
+    __tablename__ = "inventory_movements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False, index=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    
+    movement_type: Mapped[MovementType] = mapped_column(Enum(MovementType), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_stock: Mapped[int] = mapped_column(Integer, nullable=False)
+    new_stock: Mapped[int] = mapped_column(Integer, nullable=False)
+    
+    previous_cost: Mapped[float] = mapped_column(Float, nullable=False)
+    new_cost: Mapped[float] = mapped_column(Float, nullable=False)
+    unit_cost: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    
+    reference_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    reference_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="inventory_movements")
+    product: Mapped["Product"] = relationship(back_populates="inventory_movements")
+    branch: Mapped["Branch"] = relationship(back_populates="inventory_movements")
+    user: Mapped["User"] = relationship()
 
 
 # ─── Combo ────────────────────────────────────────────────────────────────────
 
-class Combo(Base):
+class Combo(Base, TenantMixin):
     __tablename__ = "combos"
+
+    organization: Mapped[Optional["Organization"]] = relationship()
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -138,7 +221,7 @@ class ComboItem(Base):
 
 # ─── Client ───────────────────────────────────────────────────────────────────
 
-class Client(Base):
+class Client(Base, TenantMixin):
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -160,6 +243,7 @@ class Client(Base):
         nullable=False,
     )
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="clients")
     sales: Mapped[list["Sale"]] = relationship(back_populates="client")
     credit_ledger: Mapped[list["CreditLedger"]] = relationship(back_populates="client", cascade="all, delete-orphan")
     vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="client", cascade="all, delete-orphan")
@@ -167,8 +251,10 @@ class Client(Base):
 
 # ─── Credit Ledger ────────────────────────────────────────────────────────────
 
-class CreditLedger(Base):
+class CreditLedger(Base, TenantMixin):
     __tablename__ = "credit_ledger"
+
+    organization: Mapped[Optional["Organization"]] = relationship()
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -181,7 +267,7 @@ class CreditLedger(Base):
 
 # ─── Sale ─────────────────────────────────────────────────────────────────────
 
-class Sale(Base):
+class Sale(Base, TenantMixin):
     __tablename__ = "sales"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -195,6 +281,7 @@ class Sale(Base):
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="sales")
     branch: Mapped["Branch"] = relationship(back_populates="sales")
     client: Mapped[Optional["Client"]] = relationship(back_populates="sales")
     items: Mapped[list["SaleItem"]] = relationship(back_populates="sale", cascade="all, delete-orphan")
@@ -215,7 +302,7 @@ class SaleItem(Base):
 
 # ─── Purchase Order ───────────────────────────────────────────────────────────
 
-class Supplier(Base):
+class Supplier(Base, TenantMixin):
     __tablename__ = "suppliers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -231,22 +318,35 @@ class Supplier(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="suppliers")
 
-class PurchaseOrder(Base):
+
+class PurchaseOrder(Base, TenantMixin):
     __tablename__ = "purchase_orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     supplier_id: Mapped[Optional[int]] = mapped_column(ForeignKey("suppliers.id"), nullable=True)
     supplier: Mapped[str] = mapped_column(String(150), nullable=False)
-    status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.pending, nullable=False)
+    status: Mapped[PurchaseOrderStatus] = mapped_column(
+        Enum(PurchaseOrderStatus), default=PurchaseOrderStatus.draft, nullable=False
+    )
     date: Mapped[date] = mapped_column(Date, nullable=False)
     total: Mapped[float] = mapped_column(Float, nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="")
+    
+    approved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="purchase_orders")
     branch: Mapped["Branch"] = relationship(back_populates="purchase_orders")
     items: Mapped[list["PurchaseOrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+    approved_by: Mapped[Optional["User"]] = relationship()
 
 
 class PurchaseOrderItem(Base):
@@ -256,6 +356,7 @@ class PurchaseOrderItem(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey("purchase_orders.id"), nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    received_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     unit_cost: Mapped[float] = mapped_column(Float, nullable=False)
 
     order: Mapped["PurchaseOrder"] = relationship(back_populates="items")
@@ -264,7 +365,7 @@ class PurchaseOrderItem(Base):
 
 # ─── Invoicing (DIAN/Siigo) ───────────────────────────────────────────────────
 
-class CompanyConfig(Base):
+class CompanyConfig(Base, TenantMixin):
     __tablename__ = "company_config"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -281,7 +382,7 @@ class CompanyConfig(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
-class Invoice(Base):
+class Invoice(Base, TenantMixin):
     __tablename__ = "invoices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -302,8 +403,10 @@ class Invoice(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
-class ServiceTemplate(Base):
+class ServiceTemplate(Base, TenantMixin):
     __tablename__ = "service_templates"
+
+    organization: Mapped[Optional["Organization"]] = relationship()
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -314,7 +417,7 @@ class ServiceTemplate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class Vehicle(Base):
+class Vehicle(Base, TenantMixin):
     __tablename__ = "vehicles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -326,17 +429,19 @@ class Vehicle(Base):
     plate: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    organization: Mapped[Optional["Organization"]] = relationship()
     branch: Mapped["Branch"] = relationship(back_populates="vehicles")
     client: Mapped["Client"] = relationship(back_populates="vehicles")
     work_orders: Mapped[list["WorkOrder"]] = relationship(back_populates="vehicle", cascade="all, delete-orphan")
 
 
-class WorkOrder(Base):
+class WorkOrder(Base, TenantMixin):
     __tablename__ = "work_orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id"), nullable=False)
+    mechanic_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     status: Mapped[WorkOrderStatus] = mapped_column(
         Enum(WorkOrderStatus), default=WorkOrderStatus.scheduled, nullable=False
     )
@@ -347,6 +452,7 @@ class WorkOrder(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="work_orders")
     branch: Mapped["Branch"] = relationship(back_populates="work_orders")
     vehicle: Mapped["Vehicle"] = relationship(back_populates="work_orders")
     services: Mapped[list["WorkOrderService"]] = relationship(

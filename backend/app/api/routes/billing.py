@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-
 from app import schemas
-from app.services.auth import require_minimum_role
+from app.services.auth import require_cashier
 
-router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
+router = APIRouter(dependencies=[Depends(require_cashier)])
 
 
 @router.post("/dian/invoices/preview", response_model=schemas.DianInvoiceOut)

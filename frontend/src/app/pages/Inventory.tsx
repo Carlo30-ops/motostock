@@ -21,8 +21,7 @@ import {
   useUpdateProduct,
   useDeleteProduct,
 } from "../api/hooks";
-import { useCurrentUser } from "../hooks/useCurrentUser";
-import { hasRoleAccess, rbac } from "../lib/rbac";
+import { useAuth, Can } from "../lib/auth-rbac";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -48,11 +47,10 @@ function apiErrorMessage(error: unknown): string {
 
 export function Inventory() {
   const { t, language } = useLanguage();
-  const { data: currentUser } = useCurrentUser();
-  const role = currentUser?.role || "";
-  const canSeeCosts = hasRoleAccess(role, "supervisor");
-  const canEdit = rbac.inventory.canEdit(role);
-  const canDelete = rbac.inventory.canDelete(role);
+  const { hasPermission } = useAuth();
+  const canSeeCosts = hasPermission("inventory:viewCosts");
+  const canEdit = hasPermission("inventory:edit");
+  const canDelete = hasPermission("inventory:delete");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedIds, toggleOne, toggleAll, isSelected, count, clearSelection } =
@@ -224,17 +222,17 @@ export function Inventory() {
           <p className="text-muted-foreground">{t("inventory.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {hasRoleAccess(role, "supervisor") && (
+          <Can permission="inventory:adjustStock">
             <Button variant="outline" onClick={autoGenerateRestock} className="gap-2">
               <RefreshCw className="w-4 h-4" />
               <span className="hidden sm:inline">Repo. Automática</span>
             </Button>
-          )}
+          </Can>
           <Button variant="outline" onClick={() => navigate("/inventory/labels")} className="gap-2">
             <Printer className="w-4 h-4" />
             <span className="hidden sm:inline">{t("inventory.labels")}</span>
           </Button>
-          {canEdit && (
+          <Can permission="inventory:edit">
             <Button
               onClick={() => {
                 setEditingProduct(null);
@@ -246,7 +244,7 @@ export function Inventory() {
               <Plus className="w-4 h-4" />
               {t("inventory.addProduct")}
             </Button>
-          )}
+          </Can>
         </div>
       </div>
 
@@ -353,14 +351,14 @@ export function Inventory() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="font-medium">{formatCurrency(product.salePrice)}</div>
-                        {canSeeCosts && (
+                        <Can permission="inventory:viewCosts">
                           <div className="text-[10px] text-muted-foreground">
                             Costo: {formatCurrency(product.costPrice)}
                           </div>
-                        )}
+                        </Can>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {canEdit && (
+                        <Can permission="inventory:edit">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -370,7 +368,7 @@ export function Inventory() {
                             <Edit2 className="w-4 h-4" />
                             <span className="sr-only">Editar</span>
                           </Button>
-                        )}
+                        </Can>
                       </td>
                     </tr>
                   );
@@ -444,16 +442,18 @@ export function Inventory() {
                 onChange={(e) => setFormData({ ...formData, salePrice: parseFloat(e.target.value) })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("inventory.costPrice")}</label>
-              <Input
-                type="number"
-                step="0.01"
-                required
-                value={formData.costPrice}
-                onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
-              />
-            </div>
+            <Can permission="inventory:viewCosts">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("inventory.costPrice")}</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={formData.costPrice}
+                  onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
+                />
+              </div>
+            </Can>
             <div className="space-y-2">
               <label className="text-sm font-medium">{t("inventory.reorderThreshold")}</label>
               <Input
@@ -468,12 +468,14 @@ export function Inventory() {
           </div>
           <div className="flex justify-between gap-3 pt-4">
             <div>
-              {editingProduct && canDelete && (
-                <Button type="button" variant="destructive" onClick={handleDelete}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Eliminar
-                </Button>
-              )}
+              <Can permission="inventory:delete">
+                {editingProduct && (
+                  <Button type="button" variant="destructive" onClick={handleDelete}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Eliminar
+                  </Button>
+                )}
+              </Can>
             </div>
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>

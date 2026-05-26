@@ -15,6 +15,7 @@ from app.api.routes import (
     suppliers,
     workshop,
     totp,
+    users,
 )
 
 api_router = APIRouter()
@@ -32,3 +33,4 @@ api_router.include_router(billing.router, prefix="/billing", tags=["billing"])
 api_router.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
 api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
 api_router.include_router(totp.router, prefix="/2fa", tags=["2fa"])
+api_router.include_router(users.router, prefix="/users", tags=["users"])

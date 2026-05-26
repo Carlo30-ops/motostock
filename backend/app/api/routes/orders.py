@@ -7,7 +7,7 @@ from app import schemas, models
 from app.database import get_db
 from app.services.auth import require_minimum_role, get_current_active_user
 
-router = APIRouter(dependencies=[Depends(require_minimum_role("supervisor"))])
+router = APIRouter(dependencies=[Depends(require_minimum_role("accountant"))])
 
 
 @router.get("/", response_model=list[schemas.PurchaseOrderOut])
@@ -23,7 +23,7 @@ def get_orders(
 @router.post("/", response_model=schemas.PurchaseOrderOut, status_code=status.HTTP_201_CREATED)
 def create_order(
     order: schemas.PurchaseOrderCreate, 
-    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    current_user: Annotated[models.User, Depends(require_minimum_role("supervisor"))],
     db: Session = Depends(get_db)
 ):
     total = sum(item.unit_cost * item.quantity for item in order.items)
@@ -64,7 +64,7 @@ def create_order(
 def update_order_status(
     order_id: int, 
     status_update: schemas.PurchaseOrderStatusUpdate, 
-    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    current_user: Annotated[models.User, Depends(require_minimum_role("supervisor"))],
     db: Session = Depends(get_db)
 ):
     db_order = db.query(models.PurchaseOrder).filter(

@@ -41,17 +41,28 @@ export function Layout() {
 
   const navItems = [
     { path: "/", icon: LayoutDashboard, label: t("nav.dashboard"), minRole: "cashier" },
-    { path: "/inventory", icon: Package, label: t("nav.inventory"), minRole: "seller" },
+    { path: "/inventory", icon: Package, label: t("nav.inventory"), minRole: "cashier" },
     { path: "/sales", icon: ShoppingCart, label: t("nav.sales"), minRole: "cashier" },
     { path: "/credit", icon: CreditCard, label: t("nav.credit"), minRole: "supervisor" },
-    { path: "/clients", icon: Users, label: t("nav.clients"), minRole: "seller" },
-    { path: "/workshop", icon: Wrench, label: t("nav.workshop"), minRole: "seller" },
-    { path: "/reports", icon: FileText, label: t("nav.reports"), minRole: "supervisor" },
-    { path: "/purchase-orders", icon: Truck, label: t("nav.orders"), minRole: "supervisor" },
+    { path: "/clients", icon: Users, label: t("nav.clients"), minRole: "cashier" },
+    { path: "/workshop", icon: Wrench, label: t("nav.workshop"), minRole: "mechanic" },
+    { path: "/reports", icon: FileText, label: t("nav.reports"), minRole: "accountant" },
+    { path: "/purchase-orders", icon: Truck, label: t("nav.orders"), minRole: "accountant" },
     { path: "/suppliers", icon: Briefcase, label: t("nav.suppliers"), minRole: "supervisor" },
+    { path: "/admin/users", icon: Users, label: "Usuarios", minRole: "admin" },
     { path: "/profile", icon: UserCircle, label: t("nav.profile"), minRole: "cashier" },
     { path: "/admin/dian-config", icon: Settings, label: "DIAN Config", minRole: "admin" },
-  ].filter((item) => hasRoleAccess(role, item.minRole));
+  ].filter((item) => {
+    if (role === "mechanic") {
+      // Mecánico solo ve taller, dashboard (dashboard filtrará data) y perfil
+      return ["/", "/workshop", "/profile"].includes(item.path);
+    }
+    if (role === "accountant") {
+      // Contador solo ve lectura de inventario, ventas, reportes, órdenes y perfil
+      return ["/", "/inventory", "/sales", "/reports", "/purchase-orders", "/profile"].includes(item.path);
+    }
+    return hasRoleAccess(role, item.minRole);
+  });
 
   const handleLogout = () => {
     void logout();

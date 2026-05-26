@@ -17,7 +17,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 ROLE_HIERARCHY: dict[str, int] = {
     "cashier": 10,
+    "mechanic": 15,
     "seller": 20,
+    "accountant": 25,
     "supervisor": 30,
     "admin": 40,
     "superadmin": 50,

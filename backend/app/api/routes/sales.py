@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import schemas, models
 from app.database import get_db
-from app.services.auth import require_minimum_role
+from app.services.auth import require_minimum_role, get_current_active_user, has_role_access
 
 router = APIRouter(dependencies=[Depends(require_minimum_role("cashier"))])
 
@@ -37,6 +37,10 @@ def get_sales(
     skip: int = 0, 
     limit: int = 100
 ):
+    # Mecánicos no pueden ver ventas
+    if current_user.role == "mechanic":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Mechanics cannot view sales")
+        
     return db.query(models.Sale).filter(models.Sale.branch_id == current_user.branch_id).offset(skip).limit(limit).all()
 
 
@@ -46,6 +50,10 @@ def create_sale(
     current_user: Annotated[models.User, Depends(get_current_active_user)],
     db: Session = Depends(get_db)
 ):
+    # Solo cajeros, vendedores y superiores pueden crear ventas (mecánicos no)
+    if not has_role_access(current_user.role, "cashier") or current_user.role == "mechanic":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to create sales")
+
     # Check for idempotency if offline_id is provided
     if sale.offline_id:
         existing_sale = db.query(models.Sale).filter(

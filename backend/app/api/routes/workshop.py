@@ -98,9 +98,13 @@ def list_work_orders(
 @router.post("/work-orders", response_model=schemas.WorkOrderOut, status_code=status.HTTP_201_CREATED)
 def create_work_order(
     payload: schemas.WorkOrderCreate, 
-    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    current_user: Annotated[models.User, Depends(require_minimum_role("cashier"))],
     db: Session = Depends(get_db)
 ):
+    # Mecánicos no crean órdenes de trabajo, solo cajeros/asesores
+    if current_user.role == "mechanic":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Mechanics cannot create work orders")
+
     vehicle = db.query(models.Vehicle).filter(
         models.Vehicle.id == payload.vehicle_id,
         models.Vehicle.branch_id == current_user.branch_id
@@ -148,7 +152,7 @@ def create_work_order(
 def update_work_order_status(
     order_id: int,
     payload: schemas.WorkOrderStatusUpdate,
-    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    current_user: Annotated[models.User, Depends(require_minimum_role("mechanic"))],
     db: Session = Depends(get_db),
 ):
     db_order = (

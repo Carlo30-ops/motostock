@@ -6,127 +6,82 @@ MotoStock es una solución full-stack robusta y de nivel empresarial diseñada e
 
 ## 🏗️ Arquitectura del Sistema
 
-El sistema ha sido modernizado para asegurar la integridad de los datos y una óptima experiencia de usuario:
+El sistema utiliza una arquitectura **Multi-Tenant (Aislamiento de Datos)** y un modelo de seguridad **Fail-Closed**.
 
-*   **Backend:** Python 3.11+, FastAPI (API REST ultrarrápida), PostgreSQL 15 (base de datos relacional y transaccional), SQLAlchemy 2 (ORM moderno), Alembic (control de versiones y migraciones de BD), Redis 7 (caché y control de flujo/rate limiting con SlowAPI), y seguridad avanzada (JWT + Refresh Tokens + cifrado Fernet + 2FA/TOTP).
-*   **Frontend:** React 18, TypeScript, Vite 6, Tailwind CSS 4, Radix UI (componentes premium).
-    *   *Nota de estado:* La comunicación de datos ha sido migrada por completo a **React Query** (fuente única de verdad del backend). **Zustand** se utiliza únicamente para el manejo de estado transitorio de la UI y el carrito del punto de venta (POS).
-*   **Monitoreo e Infraestructura:** Docker y Docker Compose para orquestar la aplicación junto con Prometheus y Grafana para visualización de métricas en tiempo real, además de un agente automatizado de backups diarios.
+### 🛠️ Tech Stack
+*   **Backend:** Python 3.11+, FastAPI, PostgreSQL 15, SQLAlchemy 2 (ORM), Alembic, Redis 7 (Rate Limiting).
+*   **Frontend:** React 18, TypeScript, Vite 6, Tailwind CSS 4, React Query (Estado del Servidor), Zustand (Estado UI).
+*   **Infraestructura:** Docker Compose, Nginx (Proxy/WAF), Prometheus & Grafana (Monitoreo).
+
+### 🔒 Seguridad Multi-tenant e Isolation
+El sistema implementa un aislamiento estricto por sucursal/tenant:
+*   **ContextVars:** Seguimiento seguro del `tenant_id` durante el ciclo de vida de la petición.
+*   **Aislamiento en Base de Datos:** Uso de `TenantMixin` y ganchos (hooks) de SQLAlchemy (`do_orm_execute`) para inyectar automáticamente filtros de tenant en todas las consultas, previniendo fugas de datos.
+*   **Seguridad Fail-Closed:** Si un usuario no tiene un `tenant_id` válido en su sesión, el sistema bloquea cualquier acceso a datos de forma predeterminada.
+
+### 🛡️ Control de Acceso Basado en Roles (RBAC)
+Jerarquía de permisos granular:
+*   **Superadmin:** Gestión global, creación de sucursales y auditoría.
+*   **Admin de Sucursal:** Control total sobre su propia sede, reportes financieros y gestión de personal.
+*   **Supervisor:** Gestión de inventario, aprobación de órdenes de compra y supervisión de taller.
+*   **Vendedor/Cajero:** Operaciones de POS, facturación y registro de clientes.
+*   **Mecánico:** Acceso limitado al módulo de taller y órdenes de trabajo.
 
 ---
 
 ## 🚀 Arranque Rápido con Docker
 
-La forma más sencilla y recomendada de poner en marcha todo el stack es a través de Docker Compose.
+La forma más sencilla y recomendada de poner en marcha todo el stack:
 
-### 1. Preparar las Variables de Entorno
-Copia la plantilla de variables de entorno y ajusta las contraseñas base:
-```bash
-cp .env.example .env
-```
-*(Puedes dejar los valores predeterminados para desarrollo local).*
+1.  **Preparar Entorno:** `cp .env.example .env`
+2.  **Levantar:** `docker compose up -d --build`
 
-### 2. Levantar los Contenedores
-Ejecuta el comando de construcción e inicialización de servicios:
-```bash
-docker compose up -d --build
-```
-Este comando descargará las imágenes, compilará los contenedores de frontend y backend, iniciará PostgreSQL y Redis, aplicará automáticamente todas las migraciones de Alembic e insertará los datos semilla.
-
-### 🔑 Credenciales de Acceso Demo
-
-El sistema se inicializa con los siguientes usuarios de demostración (cargados en la migración `seed_data`):
-
-| Rol / Nivel | Usuario | Contraseña | PIN (Tablet) |
+### 🔑 Credenciales Demo
+| Rol | Usuario | Password | PIN |
 | :--- | :--- | :--- | :--- |
-| **Administrador (Superadmin)** | `admin` | `admin123` | `1234` |
-| **Cajero (Cashier)** | `cashier` | `cashier123` | `5678` |
-
-### 🌐 Puertos y URLs de Servicios
-
-Una vez iniciado el stack, los siguientes servicios estarán disponibles de forma local:
-
-*   **Aplicación Web (Frontend):** [http://localhost:8080](http://localhost:8080) *(Puerto 8080 configurado para evitar colisiones con el puerto 80 en Windows)*.
-*   **Documentación de la API (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
-*   **Servicio API (Backend):** [http://localhost:8000/api](http://localhost:8000/api)
-*   **Métricas de Prometheus:** [http://localhost:9090](http://localhost:9090)
-*   **Tableros de Grafana:** [http://localhost:3000](http://localhost:3000) *(Métricas y rendimiento de contenedores)*.
+| **Admin** | `admin` | `admin123` | `1234` |
+| **Cajero** | `cashier` | `cashier123` | `5678` |
 
 ---
 
-## 🛠️ Configuración de Desarrollo Local (Sin Docker)
+## 🛠️ Configuración de Desarrollo Local
 
-Si deseas ejecutar los servicios de manera local para tareas de desarrollo o depuración de código:
+### Requisitos
+*   Python 3.11+, Node.js 18+, PostgreSQL 15, Redis 7.
 
-### Requisitos Previos
-*   Instalar Python 3.11+
-*   Instalar Node.js 18+ (y npm o pnpm)
-*   Tener una instancia activa de PostgreSQL 15 y Redis 7.
-
-### 1. Servidor Backend
+### 1. Backend
 ```bash
 cd backend
 python -m venv venv
-# En Linux/macOS:
-source venv/bin/activate
-# En Windows (PowerShell):
-.\venv\Scripts\Activate.ps1
-
-# Instalar dependencias e iniciar
+.\venv\Scripts\Activate.ps1 # Windows
 pip install -r requirements.txt
 alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload
 ```
 
-### 2. Cliente Frontend
+### 2. Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-*El frontend de desarrollo se abrirá en [http://localhost:5173](http://localhost:5173) y apuntará automáticamente al backend en `http://localhost:8000`.*
-
-> [!TIP]
-> **Compatibilidad en Windows:** Si tienes problemas con el ejecutable global de `npm` en Windows, puedes utilizar el script local del proyecto `.\scripts\npm.ps1 install` y `npm.ps1 run dev` para autolocalizar las rutas de Node.js.
 
 ---
 
-## 🧪 Ejecución de la Suite de Pruebas
+## 🗺️ Roadmap de Desarrollo
 
-El backend cuenta con una suite completa de pruebas de integración y seguridad que validan la API (autenticación JWT, refresh tokens, control de stock, ledger de clientes, proveedores y flujos de taller).
-
-### Ejecutar Tests en Docker (Recomendado)
-```bash
-docker compose run --rm --no-deps backend pytest tests/ -v
-```
-
-### Ejecutar Tests en Entorno Local
-Activa el entorno virtual del backend y ejecuta:
-```bash
-cd backend
-pytest tests/ -v
-```
+- [x] **Fase 1:** Core POS e Inventario.
+- [x] **Fase 2:** Módulo de Taller y Ordenes de Trabajo.
+- [x] **Fase 3:** Multi-sucursal y Aislamiento de Datos.
+- [ ] **Fase 4:** Facturación Electrónica DIAN (Integración Siigo).
+- [ ] **Fase 5:** App Móvil PWA para Mecánicos.
+- [ ] **Fase 6:** Analítica Predictiva de Stock.
 
 ---
 
-## 💾 Gestión de Backups (Copias de Seguridad)
+## 🧪 Pruebas y Calidad
+*   **Backend:** Suite completa con `pytest` incluyendo pruebas de concurrencia y seguridad.
+*   **Frontend:** Tipado estricto y validación de componentes.
+*   **CI/CD:** GitHub Actions configurado para validación automática en cada commit.
 
-MotoStock incluye un contenedor automatizado (`motostock_backup`) que realiza copias de seguridad de la base de datos de manera programada:
-
-*   **Frecuencia:** Cada 12 horas (configurable mediante `BACKUP_INTERVAL_HOURS`).
-*   **Retención:** Almacena los archivos SQL comprimidos en `.gz` dentro de la carpeta local `./backups/` y elimina las copias que tengan más de 7 días.
-*   **Copia Manual:** Si requieres generar un respaldo inmediato, puedes ejecutar:
-    ```bash
-    docker exec -t motostock_db pg_dump -U motostock motostock > ./backups/manual_backup_$(date +%Y%m%d_%H%M%S).sql
-    ```
-
----
-
-## 🔒 Buenas Prácticas de Seguridad para Producción
-
-1.  **Rotación de Contraseñas:** Asegúrate de cambiar `SECRET_KEY`, `ENCRYPTION_KEY`, `POSTGRES_PASSWORD` y `REDIS_PASSWORD` en el archivo `.env` antes del despliegue en producción.
-2.  **CORS Restrictivo:** Modifica la variable `CORS_ORIGINS` en el archivo `.env` para apuntar únicamente a los dominios autorizados de tu producción (ej. `CORS_ORIGINS=https://mi-taller.com`).
-3.  **Firewall:** Configura las reglas de red en tu servidor para no exponer el puerto `5432` (PostgreSQL) ni el `6379` (Redis) públicamente. Solo los puertos del proxy Nginx (`80`/`443`) y el backend (`8000`) si es necesario, deben estar expuestos.
-4.  **2FA:** Se recomienda activar el Doble Factor de Autenticación (2FA) en la pantalla de Perfil para todos los usuarios con roles administrativos.
-
-Para detalles exhaustivos de despliegue, consulta la guía [DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Para detalles exhaustivos, consulta la guía [DEPLOYMENT.md](docs/DEPLOYMENT.md).

@@ -90,7 +90,7 @@ def create_error_response(
         "error": {
             "code": error_code,
             "message": message,
-            "timestamp": "2024-01-01T00:00:00Z",  # Esto debería ser dinámico
+            "timestamp": datetime.utcnow().isoformat() + "Z",
             "request_id": request_id
         }
     }
@@ -268,6 +268,11 @@ def setup_exception_handlers(app):
     """Registra todos los manejadores de excepciones en la aplicación FastAPI."""
     
     app.add_exception_handler(MotoStockException, motostock_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(SQLAlchemyError, database_exception_handler)
+    app.add_exception_handler(Exception, general_exception_handler)
+ption, motostock_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(SQLAlchemyError, database_exception_handler)

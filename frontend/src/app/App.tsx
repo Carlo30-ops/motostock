@@ -7,6 +7,7 @@ import { LanguageProvider } from "./lib/i18n";
 import { NotificationSystem } from "./components/ui/NotificationSystem";
 import { AuthProvider } from "./lib/auth-refresh-client";
 import { flushPendingMutations } from "./offline/sync";
+import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
 import type { OfflineFlushedEventDetail, OfflineQueuedEventDetail } from "./offline/sync";
 
 const queryClient = new QueryClient();
@@ -56,16 +57,18 @@ export default function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <LanguageProvider>
-          <Suspense fallback={<div>Cargando...</div>}>
-            <RouterProvider router={router} />
-          </Suspense>
-          <Toaster position="top-right" richColors />
-          <NotificationSystem />
-        </LanguageProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <LanguageProvider>
+            <Suspense fallback={<div>Cargando...</div>}>
+              <RouterProvider router={router} />
+            </Suspense>
+            <Toaster position="top-right" richColors />
+            <NotificationSystem />
+          </LanguageProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }

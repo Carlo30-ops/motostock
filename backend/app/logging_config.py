@@ -5,6 +5,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
+from contextvars import ContextVar
 
 import structlog
 from pythonjsonlogger import jsonlogger
@@ -178,6 +179,20 @@ class AuditLogger:
         self.logger.info(
             "Audit action recorded",
             actor_id=actor_id,
+            target_id=target_id,
+            action=action,
+            resource=resource,
+            branch_id=branch_id,
+            details=details or {}
+        )
+
+
+# Instancias globales para uso fácil
+request_logger = RequestLogger()
+db_logger = DatabaseLogger()
+security_logger = SecurityLogger()
+audit_logger = AuditLogger()
+d=actor_id,
             target_id=target_id,
             action=action,
             resource=resource,

@@ -136,7 +136,7 @@ class User(Base, TenantMixin):
 
 # ─── Product / Inventory ──────────────────────────────────────────────────────
 
-class Product(Base, TenantMixin):
+class Product(Base, TenantMixin, SoftDeleteMixin):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -472,3 +472,4 @@ class WorkOrderService(Base):
 
 
 from app.models.refresh_token import RefreshToken  # noqa: E402, F401
+import RefreshToken  # noqa: E402, F401

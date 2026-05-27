@@ -114,25 +114,37 @@ const FEATURE_FLAGS: Record<FeatureFlag, boolean> = {
 
 // --- 4. Helpers y Lógica de Negocio ---
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: UserRole;
+  branch_id: number;
+  max_discount: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface AuthState {
-  user: any | null;
+  user: User | null;
   role: UserRole | null;
   permissions: Permission[];
-  branchId: number | null;
+  branch_id: number | null;
   isAuthenticated: boolean;
 }
 
 export function useAuth() {
   const { data: currentUser, isLoading } = useCurrentUser();
-  
+
   const state: AuthState = useMemo(() => {
-    const role = currentUser?.role as UserRole;
+    const user = currentUser as unknown as User;
+    const role = user?.role;
     return {
-      user: currentUser,
+      user: user || null,
       role: role || null,
       permissions: role ? ROLE_PERMISSIONS[role] || [] : [],
-      branchId: currentUser?.branch_id || null,
-      isAuthenticated: !!getAccessToken() && !!currentUser,
+      branch_id: user?.branch_id || null,
+      isAuthenticated: !!getAccessToken() && !!user,
     };
   }, [currentUser]);
 
@@ -151,7 +163,7 @@ export function useAuth() {
   // Branch-aware logic
   const canAccessBranch = (targetBranchId: number): boolean => {
     if (state.role === "superadmin" || state.role === "admin") return true;
-    return state.branchId === targetBranchId;
+    return state.branch_id === targetBranchId;
   };
 
   const canViewFinancialData = (): boolean => {

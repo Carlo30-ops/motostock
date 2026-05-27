@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import User
+from app.core.rbac import Permission, has_permission
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
@@ -84,17 +85,34 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     from app.services.tenant import bypass_tenant_context, set_current_tenant_id
     with bypass_tenant_context("Resolve user during JWT authentication", "system"):
         user = db.query(User).filter(User.username == username).first()
+    
     if user is None:
         raise credentials_exception
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-        
+    
+    # Automated Multi-tenant Context Injection
+    # This token remains active for the duration of the request/thread
     set_current_tenant_id(user.organization_id)
-    db.info["tenant_id"] = user.organization_id
+    
     return user
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+def require_permission(permission: Permission):
+    """
+    Dependencia para exigir un permiso específico.
+    Uso: Annotated[User, Depends(require_permission(Permission.SALES_CREATE))]
+    """
+    def _permission_dependency(current_user: User = Depends(get_current_active_user)) -> User:
+        if not has_permission(current_user.role, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail=f"Permiso insuficiente: {permission.value}"
+            )
+        return current_user
+    return _permission_dependency
 
 def has_role_access(user_role: str, minimum_role: str) -> bool:
     user_level = ROLE_HIERARCHY.get(user_role, 0)

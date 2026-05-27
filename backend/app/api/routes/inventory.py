@@ -13,12 +13,15 @@ from app.services.auth import (
     require_role, 
     require_admin, 
     require_supervisor,
+    require_permission,
     get_current_active_user,
     has_role_access
 )
+from app.core.rbac import Permission
 from app.logging_config import audit_logger
+from app.services.inventory import InventoryService
 
-router = APIRouter(dependencies=[Depends(require_role("cashier"))])
+router = APIRouter(dependencies=[Depends(require_permission(Permission.INVENTORY_VIEW))])
 
 
 def _generate_ean13_from_id(product_id: int) -> str:
@@ -173,10 +176,10 @@ def adjust_stock(
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: int, 
-    current_user: Annotated[models.User, Depends(require_admin)],
+    current_user: Annotated[models.User, Depends(require_permission(Permission.INVENTORY_DELETE))],
     db: Session = Depends(get_db)
 ):
-    """REGLA: Solo Admin+ puede eliminar. Supervisor NO puede."""
+    """Solo con permiso de eliminación."""
     query = db.query(models.Product).filter(models.Product.id == product_id)
     
     if current_user.role != "superadmin":
@@ -245,7 +248,7 @@ def get_barcode_image(
 
 @router.post("/bulk-generate-barcodes", response_model=list[schemas.ProductInternalOut])
 def bulk_generate_barcodes(
-    current_user: Annotated[models.User, Depends(require_admin)],
+    current_user: Annotated[models.User, Depends(require_permission(Permission.INVENTORY_EDIT))],
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Product).filter(models.Product.barcode == None)
@@ -259,3 +262,4 @@ def bulk_generate_barcodes(
         
     db.commit()
     return products_without_barcode
+thout_barcode

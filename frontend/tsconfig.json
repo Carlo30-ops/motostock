@@ -13,7 +13,16 @@
     "strict": true,
     "noEmit": true,
     "baseUrl": ".",
-    "types": ["vite/client", "node"],
+    "paths": {
+      "@/*": ["src/app/*"],
+      "@shared/*": ["src/app/components/*"],
+      "@modules/*": ["src/app/modules/*"],
+      "@hooks/*": ["src/app/hooks/*"],
+      "@api/*": ["src/app/api/*"],
+      "@lib/*": ["src/app/lib/*"],
+      "@types/*": ["src/app/types/*"]
+    },
+    "types": ["vite/client", "node", "@testing-library/jest-dom"],
     "strictNullChecks": true,
     "noImplicitAny": true,
     "strictFunctionTypes": true,

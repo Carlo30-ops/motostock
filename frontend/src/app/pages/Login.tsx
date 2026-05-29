@@ -4,14 +4,16 @@
 import { FormEvent, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { LogIn, Bike } from "lucide-react";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { useAuthSession } from "../lib/auth";
 import { useLanguage } from "../lib/i18n";
 import { toast } from "sonner";
+import { api } from "../api/client";
+import { TwoFactorVerification } from "../modules/auth/TwoFactorVerification";
 
 export function Login() {
-  const { login, isLoading } = useAuthSession();
+  const { login, logout } = useAuthSession();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -20,18 +22,42 @@ export function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoggingIn(true);
     try {
       await login(username, password);
-      toast.success("Sesión iniciada");
-      navigate(from, { replace: true });
+      
+      // Verificar si requiere 2FA
+      const status = await api.getTOTPStatus();
+      if (status.enabled) {
+        setShow2FA(true);
+      } else {
+        toast.success("Sesión iniciada");
+        navigate(from, { replace: true });
+      }
     } catch {
       setError(t("login.error"));
       toast.error(t("login.error"));
+    } finally {
+      setIsLoggingIn(false);
     }
+  };
+
+  const handle2FASuccess = () => {
+    toast.success("Sesión iniciada correctamente");
+    navigate(from, { replace: true });
+  };
+
+  const handle2FACancel = async () => {
+    await logout();
+    setShow2FA(false);
+    setUsername("");
+    setPassword("");
   };
 
   return (
@@ -62,53 +88,62 @@ export function Login() {
           </div>
 
           <div className="rounded-xl border border-border bg-card p-8 shadow-lg">
-            <h1 className="text-xl font-semibold flex items-center gap-2 mb-1">
-              <LogIn className="w-5 h-5 text-primary" />
-              {t("login.submit")}
-            </h1>
-            <p className="text-sm text-muted-foreground mb-6">{t("login.subtitle")}</p>
+            {show2FA ? (
+              <TwoFactorVerification 
+                onSuccess={handle2FASuccess} 
+                onCancel={handle2FACancel} 
+              />
+            ) : (
+              <>
+                <h1 className="text-xl font-semibold flex items-center gap-2 mb-1">
+                  <LogIn className="w-5 h-5 text-primary" />
+                  {t("login.submit")}
+                </h1>
+                <p className="text-sm text-muted-foreground mb-6">{t("login.subtitle")}</p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium mb-1">
-                  {t("login.user")}
-                </label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  required
-                  aria-invalid={!!error}
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-1">
-                  {t("login.password")}
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                  aria-invalid={!!error}
-                />
-              </div>
-              {error && (
-                <p className="text-sm text-destructive font-medium" role="alert">
-                  {error}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label htmlFor="username" className="block text-sm font-medium mb-1">
+                      {t("login.user")}
+                    </label>
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                      autoComplete="username"
+                      required
+                      aria-invalid={!!error}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium mb-1">
+                      {t("login.password")}
+                    </label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      required
+                      aria-invalid={!!error}
+                    />
+                  </div>
+                  {error && (
+                    <p className="text-sm text-destructive font-medium" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                    {isLoggingIn ? "Entrando…" : t("login.submit")}
+                  </Button>
+                </form>
+
+                <p className="text-xs text-muted-foreground text-center mt-6 pt-4 border-t border-border">
+                  {t("login.demo")}: <strong>admin</strong> / <strong>admin123</strong>
                 </p>
-              )}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Entrando…" : t("login.submit")}
-              </Button>
-            </form>
-
-            <p className="text-xs text-muted-foreground text-center mt-6 pt-4 border-t border-border">
-              {t("login.demo")}: <strong>admin</strong> / <strong>admin123</strong>
-            </p>
+              </>
+            )}
           </div>
         </div>
       </div>

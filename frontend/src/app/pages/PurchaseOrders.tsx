@@ -3,11 +3,11 @@
  */
 import { useState } from "react";
 import { Plus, Check, Clock, Package, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { Badge } from "../components/ui/Badge";
-import { Modal } from "../components/ui/Modal";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Modal } from "../components/ui/modal";
 import type { PurchaseOrder } from "../lib/store";
 import { formatCurrency, formatDate } from "../lib/utils";
 import { useAuth, Can } from "../lib/auth-rbac";
@@ -134,6 +134,8 @@ export function PurchaseOrders() {
         return <Package className="w-4 h-4" />;
       case "received":
         return <Check className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
     }
   };
 
@@ -145,6 +147,8 @@ export function PurchaseOrders() {
         return "secondary" as const;
       case "received":
         return "success" as const;
+      default:
+        return "default" as const;
     }
   };
 
@@ -236,7 +240,7 @@ export function PurchaseOrders() {
                           return (
                             <p key={item.productId} className="text-sm">
                               {product?.name ?? "Producto"} — {item.quantity} uds.
-                              {canSeeCosts ? ` @ ${formatCurrency(item.cost)}` : ""}
+                              {canSeeCosts ? ` @ ${formatCurrency(item.cost ?? 0)}` : ""}
                             </p>
                           );
                         })}

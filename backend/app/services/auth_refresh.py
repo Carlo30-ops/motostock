@@ -8,10 +8,12 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, status
 
 from app.config import settings
 from app.models import User, RefreshToken
 from app.database import get_db
+from app.services.auth import oauth2_scheme
 
 
 class RefreshTokenService:
@@ -200,7 +202,7 @@ def authenticate_and_create_tokens(db: Session, username: str, password: str) ->
     return create_user_tokens(user, db)
 
 
-def get_current_user_from_token(token: str, db: Session) -> Optional[User]:
+def get_current_user_from_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Optional[User]:
     """Obtiene usuario actual desde access token"""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

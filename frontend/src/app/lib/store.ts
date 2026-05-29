@@ -1,7 +1,28 @@
 import { create } from "zustand";
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  branchId: number;
+  organizationId: number;
+  isActive: boolean;
+  maxDiscount: number;
+}
+
+export interface Organization {
+  id: number;
+  uuid: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  planTier: string;
+}
+
 export interface Product {
   id: string;
+  branchId?: number;
   name: string;
   category: string;
   brand: string;
@@ -35,6 +56,7 @@ export interface Client {
 
 export interface Sale {
   id: string;
+  branchId?: number;
   offlineId?: string;
   date: string;
   items: { productId: string; quantity: number; price: number }[];
@@ -58,13 +80,14 @@ export interface PurchaseOrder {
   id: string;
   branchId: number;
   supplierId: string;
-  supplier: string;
+  supplier?: string;
   items: { 
-    id: string; 
+    id?: string; 
     productId: string; 
     quantity: number; 
-    receivedQuantity: number; 
-    unitCost: number 
+    receivedQuantity?: number; 
+    unitCost?: number;
+    cost?: number; 
   }[];
   status: 
     | "draft" 
@@ -74,7 +97,9 @@ export interface PurchaseOrder {
     | "ordered" 
     | "partially_received" 
     | "received" 
-    | "cancelled";
+    | "cancelled"
+    | "pending"
+    | "sent";
   date: string;
   total: number;
   notes?: string;
@@ -86,6 +111,7 @@ export interface PurchaseOrder {
 
 export interface Vehicle {
   id: string;
+  branchId?: number;
   clientId: string;
   brand: string;
   model: string;
@@ -103,6 +129,7 @@ export interface ServiceTemplate {
 
 export interface WorkOrder {
   id: string;
+  branchId?: number;
   vehicleId: string;
   status: "scheduled" | "in_progress" | "completed" | "cancelled";
   scheduledDate: string; // ISO date

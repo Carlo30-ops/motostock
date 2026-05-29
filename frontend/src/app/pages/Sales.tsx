@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Plus, Search, Minus, Trash2, Receipt, CreditCard, Banknote, Wallet, Smartphone, AlertCircle, X, Printer, CheckCircle, LogOut } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { Badge } from "../components/ui/Badge";
-import { Modal } from "../components/ui/Modal";
+import { Plus, Search, Minus, Trash2, CreditCard, Banknote, Wallet, Smartphone, AlertCircle, X, Printer, LogOut } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Modal } from "../components/ui/modal";
 import { store, Product, Client } from "../lib/store";
 import { formatCurrency } from "../lib/utils";
 import { useLanguage } from "../lib/i18n";
@@ -13,7 +13,7 @@ import type { Sale } from "../lib/store";
 import { useProducts, useClients, useCreateSale } from "../api/hooks";
 import { toast } from "sonner";
 import axios from "axios";
-import { NumericKeypad } from "../components/ui/NumericKeypad";
+import { NumericKeypad } from "../components/ui/numeric-keypad";
 import { playSaleSuccessSound } from "../lib/feedback";
 import { cn } from "../lib/utils";
 
@@ -54,14 +54,19 @@ function apiErrorMessage(error: unknown): string {
 }
 
 import { useAuth, Can } from "../lib/auth-rbac";
-import { NumericKeypad } from "../components/ui/NumericKeypad";
 
 export function Sales() {
-  const { t, language } = useLanguage();
-  const { user: currentUser, hasPermission } = useAuth();
+  const { t } = useLanguage();
+  const { user: currentUser } = useAuth();
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: clients = [] } = useClients();
   const createSale = useCreateSale();
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchStatus, setSearchStatus] = useState<"idle" | "success" | "error">("idle");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const tabletMode = store((state) => state.tabletMode);
   const setTabletMode = store((state) => state.setTabletMode);
@@ -244,7 +249,7 @@ export function Sales() {
       return;
     }
 
-    const sale: Omit<Sale, "id"> = {
+    const sale: any = {
       offlineId: crypto.randomUUID(),
       date: new Date().toISOString().slice(0, 10),
       items: cart.map((item) => {
@@ -252,7 +257,7 @@ export function Sales() {
         return {
           productId: item.product.id,
           quantity: item.quantity,
-          price: item.product.salePrice * volumeDiscount,
+          unitPrice: item.product.salePrice * volumeDiscount,
         };
       }),
       total,

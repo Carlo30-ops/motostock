@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Product, store } from "@/lib/store";
-import { Badge } from "@shared/ui/Badge";
+import { Badge } from "@shared/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { useBarcodeScanner } from "@/lib/useBarcodeScanner";
 

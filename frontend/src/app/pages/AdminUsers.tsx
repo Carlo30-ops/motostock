@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, UserPlus, Shield, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { Modal } from "../components/ui/Modal";
-import { Badge } from "../components/ui/Badge";
+import { Trash2, UserPlus, Loader2 } from "lucide-react";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Modal } from "../components/ui/modal";
+import { Badge } from "../components/ui/badge";
 import { api } from "../api/client";
 import { toast } from "sonner";
-import { useAuth, Can } from "../lib/auth-rbac";
+import { useAuth } from "../lib/auth-rbac";
 
 export function AdminUsers() {
   const queryClient = useQueryClient();
@@ -33,7 +33,7 @@ export function AdminUsers() {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       toast.success("Usuario creado exitosamente");
       setShowAddModal(false);
-      setFormData({ username: "", email: "", password: "", role: "cashier" });
+      setFormData({ username: "", email: "", password: "", role: "cashier", max_discount: 0.0 });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Error al crear usuario");
@@ -134,7 +134,7 @@ export function AdminUsers() {
         </CardContent>
       </Card>
 
-      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Crear Nuevo Usuario">
+      <Modal open={showAddModal} onOpenChange={setShowAddModal} title="Crear Nuevo Usuario">
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Nombre de usuario</label>

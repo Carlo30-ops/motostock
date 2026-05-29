@@ -2,7 +2,6 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session, with_loader_criteria
 
 from app.config import settings
-from app.models.tenant_mixin import TenantMixin
 
 engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -14,6 +13,7 @@ class Base(DeclarativeBase):
 
 def get_db():
     from app.services.tenant import get_current_tenant_id, get_bypass_tenant
+    from app.models.tenant_mixin import TenantMixin
     
     db = SessionLocal()
     tenant_id = get_current_tenant_id()

@@ -40,8 +40,8 @@ describe("useCart", () => {
     });
     
     expect(result.current.cart).toHaveLength(1);
-    expect(result.current.cart[0].product.id).toBe("1");
-    expect(result.current.cart[0].quantity).toBe(1);
+    expect(result.current.cart[0]!.product.id).toBe("1");
+    expect(result.current.cart[0]!.quantity).toBe(1);
     expect(result.current.total).toBe(1000);
   });
 
@@ -54,7 +54,7 @@ describe("useCart", () => {
     });
     
     expect(result.current.cart).toHaveLength(1);
-    expect(result.current.cart[0].quantity).toBe(2);
+    expect(result.current.cart[0]!.quantity).toBe(2);
     expect(result.current.total).toBe(2000);
   });
 

@@ -15,7 +15,7 @@ from app.services.auth_refresh import (
     get_current_user_from_token
 )
 
-router = APIRouter(prefix="/api/auth", tags=["authentication"])
+router = APIRouter(tags=["authentication"])
 
 
 class Token(BaseModel):

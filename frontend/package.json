@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "packageManager": "npm@11.12.1",
   "scripts": {
     "dev": "vite",
     "preview": "vite preview",
@@ -104,10 +105,5 @@
     "typescript": "^5.9.2",
     "vite": "6.3.5",
     "vitest": "^2.1.1"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "6.3.5"
-    }
   }
 }

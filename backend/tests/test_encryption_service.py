@@ -4,7 +4,18 @@ Valida la encriptación/desencriptación de datos sensibles
 """
 
 import pytest
-from app.services.encryption import EncryptionService, encryption_service
+from app.services.encryption import (
+    EncryptionService, 
+    encryption_service,
+    encrypt_sensitive_data,
+    decrypt_sensitive_data,
+    encrypt_cert_data,
+    decrypt_cert_data,
+    encrypt_user_secrets,
+    decrypt_user_secrets,
+    verify_encryption_integrity,
+    migrate_to_encrypted_data
+)
 
 
 class TestEncryptionService:
@@ -280,7 +291,7 @@ class TestModelEncryption:
     
     def test_secure_user_model_encryption(self):
         """Test encriptación en modelo de usuario"""
-        from app.models.secure_user import SecureUser
+        from app.models import User as SecureUser
         
         user = SecureUser()
         
@@ -302,7 +313,7 @@ class TestModelEncryption:
     
     def test_secure_user_model_has_sensitive_data(self):
         """Test detección de datos sensibles en modelo de usuario"""
-        from app.models.secure_user import SecureUser
+        from app.models import User as SecureUser
         
         user = SecureUser()
         
@@ -315,7 +326,7 @@ class TestModelEncryption:
     
     def test_secure_user_model_to_dict_safe(self):
         """Test exportación segura de diccionario"""
-        from app.models.secure_user import SecureUser
+        from app.models import User as SecureUser
         
         user = SecureUser()
         user.id = 1
@@ -337,7 +348,7 @@ class TestModelEncryption:
     
     def test_secure_user_model_to_dict_with_sensitive(self):
         """Test exportación con datos sensibles"""
-        from app.models.secure_user import SecureUser
+        from app.models import User as SecureUser
         
         user = SecureUser()
         user.id = 1

@@ -3,10 +3,10 @@
  */
 import { useState } from "react";
 import { Shield, Key, CheckCircle2, Lock, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { Badge } from "../components/ui/Badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import {
@@ -73,10 +73,10 @@ export function Profile() {
     enable2FA.mutate(undefined, {
       onSuccess: (res) => {
         setSetupData({
-          qr_code: res.data.qr_code,
-          backup_codes: res.data.backup_codes,
+          qr_code: res.qr_code,
+          backup_codes: res.backup_codes,
         });
-        setLastBackupCodes(res.data.backup_codes);
+        setLastBackupCodes(res.backup_codes);
         toast.success("Escanea el código QR con tu app de autenticación");
       },
       onError: (err) => toast.error(apiErrorMessage(err)),
@@ -107,7 +107,7 @@ export function Profile() {
   const handleRegenerateBackup = () => {
     regenerateBackup.mutate(undefined, {
       onSuccess: (res) => {
-        setLastBackupCodes(res.data.backup_codes);
+        setLastBackupCodes(res.backup_codes);
         toast.success("Códigos de respaldo regenerados");
       },
       onError: (err) => toast.error(apiErrorMessage(err)),

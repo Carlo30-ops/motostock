@@ -1,7 +1,7 @@
 import { Search, X, Wallet, AlertCircle } from "lucide-react";
 import { Client } from "@/lib/store";
-import { Card, CardHeader, CardTitle, CardContent } from "@shared/ui/Card";
-import { Input } from "@shared/ui/Input";
+import { Card, CardHeader, CardTitle, CardContent } from "@shared/ui/card";
+import { Input } from "@shared/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { useMemo, useState } from "react";
 

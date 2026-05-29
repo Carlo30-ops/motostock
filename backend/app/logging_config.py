@@ -12,6 +12,16 @@ from pythonjsonlogger import jsonlogger
 
 from app.config import settings
 
+log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
+
+
+def add_log_context(logger: Any, method_name: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Procesador para structlog que añade el contexto actual."""
+    ctx = log_context.get()
+    if ctx:
+        event_dict.update(ctx)
+    return event_dict
+
 
 def setup_logging() -> None:
     """Configura logging estructurado con JSON para producción."""
@@ -31,6 +41,7 @@ def setup_logging() -> None:
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
+            add_log_context,
             structlog.processors.JSONRenderer()
         ],
         context_class=dict,
@@ -179,20 +190,6 @@ class AuditLogger:
         self.logger.info(
             "Audit action recorded",
             actor_id=actor_id,
-            target_id=target_id,
-            action=action,
-            resource=resource,
-            branch_id=branch_id,
-            details=details or {}
-        )
-
-
-# Instancias globales para uso fácil
-request_logger = RequestLogger()
-db_logger = DatabaseLogger()
-security_logger = SecurityLogger()
-audit_logger = AuditLogger()
-d=actor_id,
             target_id=target_id,
             action=action,
             resource=resource,

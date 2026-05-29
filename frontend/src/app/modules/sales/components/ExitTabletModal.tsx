@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Modal } from "@shared/ui/Modal";
-import { Button } from "@shared/ui/Button";
-import { Input } from "@shared/ui/Input";
+import { Modal } from "@shared/ui/modal";
+import { Button } from "@shared/ui/button";
+import { Input } from "@shared/ui/input";
 import { AuthMeResponse } from "../types";
 
 interface ExitTabletModalProps {

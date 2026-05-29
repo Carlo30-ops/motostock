@@ -24,6 +24,8 @@ import { LanguageToggle } from "./LanguageToggle";
 import { store } from "../lib/store";
 import { useOfflineSyncStatus } from "../offline/useOfflineSyncStatus";
 import { useAuth, Permission } from "../lib/auth-rbac";
+import { SessionTimeout } from "./SessionTimeout";
+import { OfflineStatusBar } from "./OfflineStatusBar";
 
 export function Layout() {
   const tabletMode = store((state) => state.tabletMode);

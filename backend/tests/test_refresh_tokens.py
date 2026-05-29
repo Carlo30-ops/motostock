@@ -8,7 +8,12 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 from jose import JWTError, jwt
 
-from app.services.auth_refresh import RefreshTokenService, create_user_tokens
+from app.services.auth_refresh import (
+    RefreshTokenService, 
+    create_user_tokens,
+    get_current_user_from_token,
+    update_refresh_token_usage
+)
 from app.models import User, RefreshToken
 
 

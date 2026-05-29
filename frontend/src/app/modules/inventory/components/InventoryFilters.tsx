@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { Input } from "@shared/ui/Input";
+import { Input } from "@shared/ui/input";
 
 interface InventoryFiltersProps {
   searchTerm: string;

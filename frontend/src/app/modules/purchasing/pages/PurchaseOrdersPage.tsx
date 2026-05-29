@@ -7,10 +7,10 @@ import {
   MoreVertical,
   Download
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/Card";
-import { Button } from "../../../components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
-import { Badge } from "../../../components/ui/Badge";
+import { Badge } from "../../../components/ui/badge";
 import { 
   Table, 
   TableBody, 

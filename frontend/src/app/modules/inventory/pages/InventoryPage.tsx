@@ -4,12 +4,12 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import axios from "axios";
 
-import { Card, CardContent, CardHeader } from "@shared/ui/Card";
-import { Button } from "@shared/ui/Button";
-import { store, Product } from "@/lib/store";
+import { Card, CardContent, CardHeader } from "@shared/ui/card";
+import { Button } from "@shared/ui/button";
+import { Product } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { useInventorySelection } from "@/hooks/useInventorySelection";
-import { useProducts } from "@/api/hooks";
+import { useProducts, useCreateOrder } from "@/api/hooks";
 import { useAuth, Can } from "@/lib/auth-rbac";
 
 // Module imports
@@ -49,6 +49,7 @@ export function InventoryPage() {
 
   const { selectedIds, toggleOne, toggleAll, isSelected, clearSelection } = useInventorySelection();
   const { data: products = [], isLoading, isError, error } = useProducts();
+  const createOrderMutation = useCreateOrder();
 
   const filters = useInventoryFilters(products);
   const form = useInventoryForm(t);
@@ -69,7 +70,7 @@ export function InventoryPage() {
     return { variant: "success", label: t("stock.inStock") };
   }, [t]);
 
-  const autoGenerateRestock = useCallback(() => {
+  const autoGenerateRestock = useCallback(async () => {
     const lowStockProducts = products.filter((p) => p.stock <= p.reorderThreshold);
     if (lowStockProducts.length === 0) {
       toast.info(
@@ -81,27 +82,35 @@ export function InventoryPage() {
     }
 
     const items = lowStockProducts.map((p) => ({
-      productId: p.id,
+      productId: String(p.id),
       quantity: p.reorderThreshold * 2,
-      cost: p.costPrice,
+      unitCost: p.costPrice,
     }));
 
-    const total = items.reduce((sum, item) => sum + item.quantity * item.cost, 0);
+    const total = items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
 
-    store.addPurchaseOrder({
-      supplierId: "sup1",
-      items,
-      status: "pending",
-      date: new Date().toISOString().split("T")[0],
-      total,
-    });
+    try {
+      await createOrderMutation.mutateAsync({
+        supplierId: "1", // Por defecto a un proveedor genérico o el primero de la lista si hubiera
+        items,
+        status: "pending_approval",
+        date: new Date().toISOString().split("T")[0],
+        total,
+      } as any);
 
-    toast.success(
-      language === "es"
-        ? `Generada orden de compra para ${lowStockProducts.length} productos`
-        : `Generated purchase order for ${lowStockProducts.length} products`
-    );
-  }, [products, language]);
+      toast.success(
+        language === "es"
+          ? `Generada orden de compra para ${lowStockProducts.length} productos`
+          : `Generated purchase order for ${lowStockProducts.length} products`
+      );
+    } catch (e) {
+      toast.error(
+        language === "es"
+          ? "Error al generar la orden de compra"
+          : "Error generating purchase order"
+      );
+    }
+  }, [products, language, createOrderMutation]);
 
   if (isLoading) return <Spinner />;
 
@@ -114,8 +123,17 @@ export function InventoryPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Can permission="inventory:adjustStock">
-            <Button variant="outline" onClick={autoGenerateRestock} className="gap-2">
-              <RefreshCw className="w-4 h-4" />
+            <Button 
+              variant="outline" 
+              onClick={autoGenerateRestock} 
+              className="gap-2"
+              disabled={createOrderMutation.isPending}
+            >
+              {createOrderMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline">Repo. Automática</span>
             </Button>
           </Can>
@@ -149,7 +167,7 @@ export function InventoryPage() {
         <CardContent>
           <InventoryTable 
             products={filters.filteredProducts}
-            selectedIds={selectedIds}
+            selectedIds={Array.from(selectedIds)}
             toggleOne={toggleOne}
             toggleAll={toggleAll}
             isSelected={isSelected}

@@ -9,7 +9,7 @@ import {
   TableRow 
 } from "../../../components/ui/table";
 import { Input } from "../../../components/ui/input";
-import { Button } from "../../../components/ui/Button";
+import { Button } from "../../../components/ui/button";
 import { useProducts } from "../../../api/hooks";
 
 interface ReceiveItemsTableProps {

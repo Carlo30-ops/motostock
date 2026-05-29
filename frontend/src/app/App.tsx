@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
 import { router } from "./routes";
 import { LanguageProvider } from "./lib/i18n";
-import { NotificationSystem } from "./components/ui/NotificationSystem";
+import { NotificationSystem } from "./components/ui/notification-system";
 import { AuthProvider } from "./lib/auth-refresh-client";
 import { flushPendingMutations } from "./offline/sync";
 import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";

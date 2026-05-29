@@ -13,9 +13,9 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Badge } from "../components/ui/Badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
 import { formatCurrency } from "../lib/utils";
 import { useLanguage } from "../lib/i18n";
 import { RevenueChart } from "../components/RevenueChart";
@@ -29,8 +29,8 @@ import {
   useClients,
 } from "../api/hooks";
 import { format, subDays, startOfDay, isSameDay, isSameMonth } from "date-fns";
-import { KpiCard } from "../components/ui/KpiCard";
-import { PageSkeleton } from "../components/ui/PageSkeleton";
+import { KpiCard } from "../components/ui/kpi-card";
+import { PageSkeleton } from "../components/ui/page-skeleton";
 
 export function Dashboard() {
   const { t, language } = useLanguage();
@@ -141,10 +141,10 @@ export function Dashboard() {
 
   const lowStockProducts = useMemo(() => {
     if (inventoryReport?.rows?.length) {
-      return inventoryReport.rows
-        .filter((r) => r.status === "Low Stock" || r.status === "Out of Stock")
+      return (inventoryReport.rows as any[])
+        .filter((r: any) => r.status === "Low Stock" || r.status === "Out of Stock")
         .slice(0, 5)
-        .map((r) => ({
+        .map((r: any) => ({
           id: String(r.product_id),
           name: r.product_name,
           brand: r.brand,
@@ -157,8 +157,8 @@ export function Dashboard() {
   }, [inventoryReport, products]);
 
   const lowStockCount =
-    inventoryReport?.rows?.filter(
-      (r) => r.status === "Low Stock" || r.status === "Out of Stock"
+    (inventoryReport?.rows as any[])?.filter(
+      (r: any) => r.status === "Low Stock" || r.status === "Out of Stock"
     ).length ??
     products.filter((p) => p.stock <= p.reorderThreshold).length;
 

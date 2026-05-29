@@ -6,9 +6,9 @@ import { getAccessToken } from "../api/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Download, HardDrive, Clock, CheckCircle, DatabaseBackup, Loader2, Info } from "lucide-react";
-import { Button } from "../components/ui/Button";
-import { Badge } from "../components/ui/Badge";
-import { Modal } from "../components/ui/Modal";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Modal } from "../components/ui/modal";
 
 // Helper to format bytes
 function formatBytes(bytes: number, decimals = 2) {
@@ -61,8 +61,8 @@ export function AdminBackups() {
         alert("Backup generado y enviado por correo exitosamente.");
         refetch();
       },
-      onError: (err) => {
-        alert("Error al generar backup: " + String(err));
+      onError: () => {
+        alert("Error al generar backup.");
       }
     });
   };
@@ -86,7 +86,7 @@ export function AdminBackups() {
       a.click();
       document.body.removeChild(a);
     })
-    .catch(err => alert("Error descargando el archivo"));
+    .catch(() => alert("Error descargando el archivo"));
   };
 
   const lastBackup = backups && backups.length > 0 ? backups[0] : null;
@@ -154,7 +154,7 @@ export function AdminBackups() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Espacio Utilizado</p>
               <h3 className="text-xl font-bold text-foreground mt-1">
-                {formatBytes(backups?.reduce((acc, curr) => acc + curr.size_bytes, 0) || 0)}
+                {formatBytes(backups?.reduce((acc: number, curr: BackupFile) => acc + curr.size_bytes, 0) || 0)}
               </h3>
             </div>
           </div>
@@ -199,7 +199,7 @@ export function AdminBackups() {
                   </td>
                 </tr>
               ) : (
-                backups?.map((backup) => (
+                backups?.map((backup: BackupFile) => (
                   <tr key={backup.filename} className="hover:bg-muted/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-primary">
                       {backup.filename}

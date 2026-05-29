@@ -1,16 +1,19 @@
 import { useState, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router";
-import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
-import { store } from "../lib/store";
-import { Button } from "../components/ui/Button";
+import { ArrowLeft, Printer, RefreshCw, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "../components/ui/button";
 import { formatCurrency } from "../lib/utils";
 import { api } from "../api/client";
+import { useProducts } from "@/api/hooks";
+import { toast } from "sonner";
 
 type FormatOptions = "format-a" | "format-b" | "format-c";
 
 export function InventoryLabels() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   const [format, setFormat] = useState<FormatOptions>("format-a");
   const [copies, setCopies] = useState<Record<string, number>>({});
@@ -18,17 +21,17 @@ export function InventoryLabels() {
   const idsParam = searchParams.get("ids");
   const ids = idsParam ? idsParam.split(",") : [];
   
-  // Use store for products, but this could also be a react-query fetch.
-  // We use store to be synchronous for now.
+  const { data: products = [], isLoading, isError } = useProducts();
+
   const selectedProducts = useMemo(() => {
-    return store.products.filter(p => ids.includes(p.id));
-  }, [ids, store.products]); // store.products reference might not trigger re-render in plain react without zustand hook, but store is reactive if used correctly (actually we should use useStore)
+    return products.filter(p => ids.includes(String(p.id)));
+  }, [ids, products]);
 
   // Initialize copies
   useMemo(() => {
     if (Object.keys(copies).length === 0 && selectedProducts.length > 0) {
       const initialCopies: Record<string, number> = {};
-      selectedProducts.forEach(p => initialCopies[p.id] = 1);
+      selectedProducts.forEach(p => initialCopies[String(p.id)] = 1);
       setCopies(initialCopies);
     }
   }, [selectedProducts]);
@@ -47,14 +50,30 @@ export function InventoryLabels() {
     try {
       const res = await api.generateBarcode(Number(productId));
       if (res.barcode) {
-        store.updateProduct(productId, { barcode: res.barcode });
+        toast.success("Código generado correctamente");
+        queryClient.invalidateQueries({ queryKey: ["products"] });
       }
-      // Force a tiny re-render or the store will update it if using Zustand properly
-      setCopies(c => ({...c}));
     } catch (e) {
-      alert("Error al generar código");
+      toast.error("Error al generar código");
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-8 text-center space-y-4">
+        <h2 className="text-xl font-bold text-destructive">Error al cargar productos</h2>
+        <Button onClick={() => navigate("/inventory")}><ArrowLeft className="w-4 h-4 mr-2"/> Volver al Inventario</Button>
+      </div>
+    );
+  }
 
   if (selectedProducts.length === 0) {
     return (
@@ -67,7 +86,7 @@ export function InventoryLabels() {
 
   // Flatten products based on copies for printing
   const labelsToPrint = selectedProducts.flatMap(product => {
-    const count = copies[product.id] || 1;
+    const count = copies[String(product.id)] || 1;
     return Array(count).fill(product);
   });
 

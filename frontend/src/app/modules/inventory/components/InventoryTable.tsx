@@ -1,8 +1,8 @@
 import { Edit2 } from "lucide-react";
 import { Product } from "@/lib/store";
 import { formatCurrency, cn } from "@/lib/utils";
-import { Badge } from "@shared/ui/Badge";
-import { Button } from "@shared/ui/Button";
+import { Badge } from "@shared/ui/badge";
+import { Button } from "@shared/ui/button";
 import { Can } from "@/lib/auth-rbac";
 import { StockStatus } from "../types";
 

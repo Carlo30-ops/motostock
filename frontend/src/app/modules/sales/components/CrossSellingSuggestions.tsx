@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { Product } from "@/lib/store";
-import { Card, CardHeader, CardTitle, CardContent } from "@shared/ui/Card";
-import { Button } from "@shared/ui/Button";
+import { Card, CardHeader, CardTitle, CardContent } from "@shared/ui/card";
+import { Button } from "@shared/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useMemo } from "react";
 import { CartItem } from "../types";

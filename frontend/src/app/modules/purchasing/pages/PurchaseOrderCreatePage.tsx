@@ -6,17 +6,19 @@ import {
   ArrowLeft,
   Save,
   PackagePlus,
-  Search
+  Search,
+  AlertCircle
 } from "lucide-react";
 import { 
   useProducts, 
   useSuppliers, 
   useCreateOrder 
 } from "../../../api/hooks";
-import { Button } from "../../../components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Separator } from "../../../components/ui/separator";
 import { formatCurrency } from "../../../lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";

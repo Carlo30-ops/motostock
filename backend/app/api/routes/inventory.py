@@ -262,4 +262,3 @@ def bulk_generate_barcodes(
         
     db.commit()
     return products_without_barcode
-thout_barcode

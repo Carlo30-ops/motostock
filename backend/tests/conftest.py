@@ -6,6 +6,7 @@ import pytest
 # Usar SQLite para pruebas locales para no depender de PostgreSQL en Docker
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 os.environ["ENVIRONMENT"] = "testing"
+os.environ["SECRET_KEY"] = "test_secret"
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

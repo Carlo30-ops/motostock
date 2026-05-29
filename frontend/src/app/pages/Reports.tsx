@@ -3,11 +3,12 @@
  */
 import { useState } from "react";
 import { FileDown, TrendingUp, Package, DollarSign, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { formatCurrency, formatDate } from "../lib/utils";
 import { useAuth, Can } from "../lib/auth-rbac";
+import { useSalesReport, useInventoryReport } from "../api/hooks";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -15,7 +16,42 @@ import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { useLanguage } from "../lib/i18n";
 import { SalesReportChart } from "../components/SalesReportChart";
-import { KpiCard } from "../components/ui/KpiCard";
+import { KpiCard } from "../components/ui/kpi-card";
+
+interface SalesReportRow {
+  product_id: number;
+  product_name: string;
+  category: string;
+  quantity_sold: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+}
+
+interface SalesReport {
+  total_revenue: number;
+  total_transactions: number;
+  total_cost: number;
+  total_profit: number;
+  average_ticket: number;
+  rows: SalesReportRow[];
+}
+
+interface InventoryReportRow {
+  product_id: number;
+  product_name: string;
+  category: string;
+  brand: string;
+  stock: number;
+  status: string;
+}
+
+interface InventoryReport {
+  total_products: number;
+  total_units: number;
+  total_stock_value: number;
+  rows: InventoryReportRow[];
+}
 
 function defaultDateRange() {
   const today = new Date();
@@ -30,7 +66,6 @@ export function Reports() {
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
   const canSeeCosts = hasPermission("reports:financial");
-  const canExport = hasPermission("reports:export");
   const defaults = defaultDateRange();
   const [dateFrom, setDateFrom] = useState(defaults.from);
   const [dateTo, setDateTo] = useState(defaults.to);
@@ -40,8 +75,8 @@ export function Reports() {
     isLoading: salesLoading,
     isError: salesError,
     refetch: refetchSales,
-  } = useSalesReport(dateFrom, dateTo);
-  const { data: inventoryReport, isLoading: inventoryLoading } = useInventoryReport();
+  } = useSalesReport(dateFrom, dateTo) as { data: SalesReport | undefined; isLoading: boolean; isError: boolean; refetch: () => void };
+  const { data: inventoryReport, isLoading: inventoryLoading } = useInventoryReport() as { data: InventoryReport | undefined; isLoading: boolean };
 
   const exportReport = (type: "sales" | "inventory", fmt: "excel" | "pdf") => {
     if (type === "sales" && !salesReport) {
@@ -54,7 +89,7 @@ export function Reports() {
     }
 
     if (type === "sales" && salesReport) {
-      const rows = salesReport.rows.map((r) => ({
+      const rows = salesReport.rows.map((r: SalesReportRow) => ({
         Producto: r.product_name,
         Categoría: r.category,
         Cantidad: r.quantity_sold,
@@ -82,18 +117,18 @@ export function Reports() {
     }
 
     if (type === "inventory" && inventoryReport) {
-      const rows = inventoryReport.rows.map((r) => ({
+      const rows = inventoryReport.rows.map((r: InventoryReportRow) => ({
         Producto: r.product_name,
         Categoría: r.category,
         Marca: r.brand,
         Stock: r.stock,
         Estado: r.status,
-        ...(canSeeCosts ? { "Valor stock": r.stock * (inventoryReport.rows.find((x) => x.product_id === r.product_id)?.stock ?? 0) } : {}),
+        ...(canSeeCosts ? { "Valor stock": r.stock * (inventoryReport.rows.find((x: InventoryReportRow) => x.product_id === r.product_id)?.stock ?? 0) } : {}),
       }));
 
       if (fmt === "excel") {
         const ws = XLSX.utils.json_to_sheet(
-          inventoryReport.rows.map((r) => ({
+          inventoryReport.rows.map((r: InventoryReportRow) => ({
             Producto: r.product_name,
             Categoría: r.category,
             Marca: r.brand,
@@ -120,7 +155,7 @@ export function Reports() {
 
   const topProducts = salesReport?.rows.slice(0, 5) ?? [];
   const slowMovers =
-    inventoryReport?.rows.filter((r) => r.status === "Good" && r.stock > 0).slice(0, 8) ?? [];
+    inventoryReport?.rows.filter((r: InventoryReportRow) => r.status === "Good" && r.stock > 0).slice(0, 8) ?? [];
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -226,13 +261,13 @@ export function Reports() {
             ) : (
               <>
                 <SalesReportChart
-                  data={topProducts.map((row) => ({
+                  data={topProducts.map((row: SalesReportRow) => ({
                     name: row.product_name.slice(0, 18),
                     revenue: row.revenue,
                   }))}
                 />
                 <div className="space-y-3 mt-4 border-t pt-4">
-                  {topProducts.map((row) => (
+                  {topProducts.map((row: SalesReportRow) => (
                     <div key={row.product_id} className="flex justify-between items-center text-sm">
                       <span>{row.product_name}</span>
                       <span className="font-medium">{formatCurrency(row.revenue)}</span>
@@ -283,7 +318,7 @@ export function Reports() {
                 {slowMovers.length === 0 ? (
                   <p className="text-muted-foreground text-sm">—</p>
                 ) : (
-                  slowMovers.map((r) => (
+                  slowMovers.map((r: InventoryReportRow) => (
                     <p key={r.product_id} className="text-sm text-muted-foreground">
                       {r.product_name} — stock {r.stock}
                     </p>
@@ -314,7 +349,7 @@ export function Reports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {salesReport.rows.map((row) => (
+                  {salesReport.rows.map((row: SalesReportRow) => (
                     <tr key={row.product_id} className="border-b border-border/50">
                       <td className="py-2">{row.product_name}</td>
                       <td className="text-right py-2">{row.quantity_sold}</td>

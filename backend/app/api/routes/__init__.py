@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     auth,
+    auth_refresh,
     inventory,
     sales,
     clients,
@@ -23,6 +24,7 @@ api_router = APIRouter()
 
 api_router.include_router(health.router, prefix="/health", tags=["system"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(auth_refresh.router, prefix="/auth", tags=["auth-refresh"])
 api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
 api_router.include_router(sales.router, prefix="/sales", tags=["sales"])
 api_router.include_router(clients.router, prefix="/clients", tags=["clients"])

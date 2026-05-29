@@ -6,7 +6,7 @@ import { store, Sale } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { useProducts, useClients, useCreateSale } from "@/api/hooks";
 import { playSaleSuccessSound } from "@/lib/feedback";
-import { Button } from "@shared/ui/Button";
+import { Button } from "@shared/ui/button";
 
 // Module imports
 import { useCart } from "../hooks/useCart";
@@ -78,7 +78,7 @@ export function SalesPage() {
       return;
     }
 
-    const sale: Omit<Sale, "id"> = {
+    const sale: any = {
       offlineId: crypto.randomUUID(),
       date: new Date().toISOString().slice(0, 10),
       items: cart.cart.map((item) => {
@@ -86,7 +86,7 @@ export function SalesPage() {
         return {
           productId: item.product.id,
           quantity: item.quantity,
-          price: item.product.salePrice * volumeDiscount,
+          unitPrice: item.product.salePrice * volumeDiscount,
         };
       }),
       total: cart.total,
@@ -160,7 +160,7 @@ export function SalesPage() {
             cashReceived={cart.cashReceived}
             onDiscountChange={cart.handleDiscountChange}
             onPaymentMethodChange={cart.setPaymentMethod}
-            onCashReceivedChange={cart.setCashReceived}
+            onCashReceivedChange={(val) => cart.setCashReceived(val === "" ? "" : Number(val))}
             onComplete={handleCompleteSale}
             isProcessing={createSale.isPending}
             canComplete={cart.cart.length > 0}

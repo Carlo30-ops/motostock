@@ -170,6 +170,12 @@ export function useAuth() {
     return hasAnyPermission(["reports:financial", "inventory:viewCosts"]);
   };
 
+  const logout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    window.location.href = "/login";
+  };
+
   return {
     ...state,
     isLoading,
@@ -178,6 +184,7 @@ export function useAuth() {
     isFeatureEnabled,
     canAccessBranch,
     canViewFinancialData,
+    logout,
     debug: process.env.NODE_ENV === "development" ? {
       ...state,
       missingPermissions: (required: Permission[]) => required.filter(p => !state.permissions.includes(p))

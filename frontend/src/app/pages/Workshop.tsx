@@ -9,12 +9,12 @@ import {
   FileText,
   Loader2,
 } from "lucide-react";
-import { Card, CardContent } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { Badge } from "../components/ui/Badge";
-import { Modal } from "../components/ui/Modal";
-import type { WorkOrder } from "../lib/store";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Modal } from "../components/ui/modal";
+import type { WorkOrder, Client, Vehicle, ServiceTemplate } from "../lib/store";
 import { formatDate } from "../lib/utils";
 import {
   useClients,
@@ -40,10 +40,9 @@ function apiErrorMessage(error: unknown): string {
   return "Error desconocido";
 }
 
-import { useAuth, Can } from "../lib/auth-rbac";
+import { Can } from "../lib/auth-rbac";
 
 export function Workshop() {
-  const { user: currentUser } = useAuth();
   const { data: clients = [] } = useClients();
   const { data: serviceTemplates = [] } = useServiceTemplates();
   const { data: vehicles = [], isLoading: loadingVehicles } = useVehicles();
@@ -161,8 +160,8 @@ export function Workshop() {
   };
 
   const renderOrderCard = (order: WorkOrder, column: WorkOrder["status"]) => {
-    const vehicle = vehicles.find((v) => v.id === order.vehicleId);
-    const client = clients.find((c) => c.id === vehicle?.clientId);
+    const vehicle = vehicles.find((v: Vehicle) => v.id === order.vehicleId);
+    const client = clients.find((c: Client) => c.id === vehicle?.clientId);
     return (
       <Card
         key={order.id}
@@ -195,7 +194,7 @@ export function Workshop() {
             <div className="space-y-1 mb-4">
               <p className="text-xs font-semibold text-warning">Servicios Activos:</p>
               {order.serviceIds.map((sid) => {
-                const srv = serviceTemplates.find((s) => s.id === sid);
+                const srv = serviceTemplates.find((s: ServiceTemplate) => s.id === sid);
                 return (
                   <p key={sid} className="text-xs flex items-center gap-1">
                     <Clock className="w-3 h-3" /> {srv?.name}
@@ -249,9 +248,9 @@ export function Workshop() {
     );
   }
 
-  const scheduled = workOrders.filter((o) => o.status === "scheduled");
-  const inProgress = workOrders.filter((o) => o.status === "in_progress");
-  const completed = workOrders.filter((o) => o.status === "completed");
+  const scheduled = workOrders.filter((o: WorkOrder) => o.status === "scheduled");
+  const inProgress = workOrders.filter((o: WorkOrder) => o.status === "in_progress");
+  const completed = workOrders.filter((o: WorkOrder) => o.status === "completed");
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -285,7 +284,7 @@ export function Workshop() {
             <Badge className="ml-auto bg-muted text-muted-foreground">{scheduled.length}</Badge>
           </h3>
           <div className="space-y-3">
-            {scheduled.map((order) => renderOrderCard(order, "scheduled"))}
+            {scheduled.map((order: WorkOrder) => renderOrderCard(order, "scheduled"))}
           </div>
         </div>
 
@@ -295,7 +294,7 @@ export function Workshop() {
             <Badge className="ml-auto bg-warning/10 text-warning">{inProgress.length}</Badge>
           </h3>
           <div className="space-y-3">
-            {inProgress.map((order) => renderOrderCard(order, "in_progress"))}
+            {inProgress.map((order: WorkOrder) => renderOrderCard(order, "in_progress"))}
           </div>
         </div>
 
@@ -305,7 +304,7 @@ export function Workshop() {
             <Badge className="ml-auto bg-success/10 text-success">{completed.length}</Badge>
           </h3>
           <div className="space-y-3">
-            {completed.map((order) => renderOrderCard(order, "completed"))}
+            {completed.map((order: WorkOrder) => renderOrderCard(order, "completed"))}
           </div>
         </div>
       </div>
@@ -321,7 +320,7 @@ export function Workshop() {
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setVehicleForm({ ...vehicleForm, clientId: e.target.value })}
             >
               <option value="">Seleccione un cliente...</option>
-              {clients.map((c) => (
+              {clients.map((c: Client) => (
                 <option key={c.id} value={c.id}>
                   {c.name} - {c.phone}
                 </option>
@@ -392,8 +391,8 @@ export function Workshop() {
               onChange={(e) => setOrderForm({ ...orderForm, vehicleId: e.target.value })}
             >
               <option value="">Seleccione un vehículo...</option>
-              {vehicles.map((v) => {
-                const client = clients.find((c) => c.id === v.clientId);
+              {vehicles.map((v: Vehicle) => {
+                const client = clients.find((c: Client) => c.id === v.clientId);
                 return (
                   <option key={v.id} value={v.id}>
                     {v.plate} - {v.brand} {v.model} ({client?.name})
@@ -416,7 +415,7 @@ export function Workshop() {
           <div>
             <label className="block mb-2 text-sm font-medium">Servicios a Realizar</label>
             <div className="space-y-2 border rounded-lg p-3 max-h-48 overflow-y-auto">
-              {serviceTemplates.map((st) => (
+              {serviceTemplates.map((st: ServiceTemplate) => (
                 <div key={st.id} className="flex items-start gap-2">
                   <input
                     type="checkbox"

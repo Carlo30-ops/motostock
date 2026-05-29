@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, Navigate, useLocation } from "react-router";
+import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./lib/auth-rbac";
 

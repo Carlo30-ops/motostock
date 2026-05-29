@@ -3,20 +3,17 @@ FROM node:22-alpine as builder
 
 WORKDIR /app
 
-# Enable corepack for pnpm support
-RUN corepack enable
-
 # Copiar archivos de dependencias primero para mejor cache
-COPY package.json pnpm-lock.yaml* .npmrc* ./
+COPY package.json package-lock.json* .npmrc* ./
 
 # Instalar dependencias con optimizaciones
-RUN pnpm install --prod=false --config.dangerouslyAllowAllBuilds=true
+RUN npm ci
 
 # Copiar código fuente
 COPY . .
 
 # Build para producción con optimizaciones
-RUN pnpm run build
+RUN npm run build
 
 # Stage de producción con nginx optimizado
 FROM nginx:alpine as production
@@ -85,12 +82,9 @@ FROM node:22-alpine as development
 
 WORKDIR /app
 
-# Enable corepack for pnpm support
-RUN corepack enable
-
 # Instalar dependencias con cache optimizado
-COPY package.json pnpm-lock.yaml* .npmrc* ./
-RUN pnpm install --frozen-lockfile || npm install
+COPY package.json package-lock.json* .npmrc* ./
+RUN npm install
 
 COPY . .
 
@@ -106,4 +100,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD /health-check.sh
 
 # CMD optimizado para desarrollo con host 0.0.0.0
-CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

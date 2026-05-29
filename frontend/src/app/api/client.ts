@@ -56,8 +56,8 @@ export const logoutSession = async () => {
   if (refresh_token) {
     try {
       await apiClient.post("/auth/logout", { refresh_token });
-    } catch (e) {
-      console.error("Error during logout", e);
+    } catch (_e) {
+      console.error("Error during logout", _e);
     }
   }
   clearAuthTokens();
@@ -97,7 +97,7 @@ const refreshAuthSession = async (): Promise<boolean> => {
     localStorage.setItem("access_token", access_token);
     localStorage.setItem("refresh_token", refresh_token);
     return true;
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 };

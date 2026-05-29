@@ -1,6 +1,6 @@
 import { Printer } from "lucide-react";
-import { Modal } from "@shared/ui/modal";
-import { Button } from "@shared/ui/button";
+import { Modal } from "../../../components/ui/modal";
+import { Button } from "../../../components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { SaleReceipt } from "../types";
 

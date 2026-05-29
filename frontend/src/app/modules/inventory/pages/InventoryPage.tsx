@@ -4,8 +4,8 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import axios from "axios";
 
-import { Card, CardContent, CardHeader } from "@shared/ui/card";
-import { Button } from "@shared/ui/button";
+import { Card, CardContent, CardHeader } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
 import { Product } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { useInventorySelection } from "@/hooks/useInventorySelection";

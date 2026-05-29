@@ -18,7 +18,7 @@ export interface OfflineQueuedEventDetail {
   pendingCount: number;
 }
 
-export interface OfflineFlushedEventDetail extends FlushResult {}
+export type OfflineFlushedEventDetail = FlushResult;
 
 function flushFailureMeta(caught: unknown): { lastError: string; authFailure: boolean } {
   let lastError = "Error desconocido";

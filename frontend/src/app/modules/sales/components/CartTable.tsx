@@ -1,7 +1,7 @@
 import { Search, Minus, Plus, Trash2 } from "lucide-react";
 import { CartItem } from "../types";
 import { formatCurrency } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardContent } from "@shared/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
 
 interface CartTableProps {
   items: CartItem[];

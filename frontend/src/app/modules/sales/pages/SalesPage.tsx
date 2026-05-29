@@ -6,7 +6,7 @@ import { store, Sale } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { useProducts, useClients, useCreateSale } from "@/api/hooks";
 import { playSaleSuccessSound } from "@/lib/feedback";
-import { Button } from "@shared/ui/button";
+import { Button } from "../../../components/ui/button";
 
 // Module imports
 import { useCart } from "../hooks/useCart";

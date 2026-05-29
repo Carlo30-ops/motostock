@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Lock, LogIn } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -14,20 +14,20 @@ export function SessionTimeout() {
   const [password, setPassword] = useState("");
   const { data: currentUser } = useCurrentUser();
   
-  let timeoutTimer: NodeJS.Timeout;
-  let warningTimer: NodeJS.Timeout;
+  const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetTimers = useCallback(() => {
     if (isLocked) return;
     
-    clearTimeout(timeoutTimer);
-    clearTimeout(warningTimer);
+    if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
 
-    warningTimer = setTimeout(() => {
+    warningTimerRef.current = setTimeout(() => {
       toast.warning("Tu sesión expirará pronto por inactividad.");
     }, TIMEOUT_MS - WARNING_MS);
 
-    timeoutTimer = setTimeout(() => {
+    timeoutTimerRef.current = setTimeout(() => {
       setIsLocked(true);
       toast.error("Sesión bloqueada por inactividad.");
     }, TIMEOUT_MS);
@@ -43,8 +43,8 @@ export function SessionTimeout() {
 
     return () => {
       events.forEach(event => document.removeEventListener(event, handleActivity));
-      clearTimeout(timeoutTimer);
-      clearTimeout(warningTimer);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
     };
   }, [resetTimers]);
 
@@ -84,7 +84,7 @@ export function SessionTimeout() {
               type="password" 
               placeholder="Ingresa tu contraseña (usa: admin)" 
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               autoFocus
               required
             />
@@ -99,3 +99,4 @@ export function SessionTimeout() {
     </div>
   );
 }
+

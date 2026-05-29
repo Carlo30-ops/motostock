@@ -1,10 +1,10 @@
 import { Banknote, CreditCard, Smartphone, Wallet } from "lucide-react";
 import { PaymentMethod } from "../types";
-import { Card, CardHeader, CardTitle, CardContent } from "@shared/ui/card";
-import { Button } from "@shared/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Can } from "@/lib/auth-rbac";
-import { NumericKeypad } from "@shared/ui/numeric-keypad";
+import { NumericKeypad } from "../../../components/ui/numeric-keypad";
 
 interface SalesSummaryProps {
   subtotal: number;

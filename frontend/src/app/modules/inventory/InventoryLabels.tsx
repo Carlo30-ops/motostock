@@ -2,9 +2,9 @@ import { useState, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { ArrowLeft, Printer, RefreshCw, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button } from "../components/ui/button";
-import { formatCurrency } from "../lib/utils";
-import { api } from "../api/client";
+import { Button } from "../../components/ui/button";
+import { formatCurrency } from "../../lib/utils";
+import { api } from "../../api/client";
 import { useProducts } from "@/api/hooks";
 import { toast } from "sonner";
 

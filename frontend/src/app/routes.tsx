@@ -19,7 +19,7 @@ const Clients = lazy(() => import("./pages/Clients").then(m => ({ default: m.Cli
 const Reports = lazy(() => import("./pages/Reports").then(m => ({ default: m.Reports })));
 const AdminBackups = lazy(() => import("./pages/AdminBackups").then(m => ({ default: m.AdminBackups })));
 const AdminDianConfig = lazy(() => import("./pages/AdminDianConfig").then(m => ({ default: m.AdminDianConfig })));
-const InventoryLabels = lazy(() => import("./pages/InventoryLabels").then(m => ({ default: m.InventoryLabels })));
+const InventoryLabels = lazy(() => import("./modules/inventory/InventoryLabels").then(m => ({ default: m.InventoryLabels })));
 const Profile = lazy(() => import("./pages/Profile").then(m => ({ default: m.Profile })));
 const Suppliers = lazy(() => import("./pages/Suppliers").then(m => ({ default: m.Suppliers })));
 const Workshop = lazy(() => import("./pages/Workshop").then(m => ({ default: m.Workshop })));

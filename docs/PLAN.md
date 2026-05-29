@@ -34,12 +34,12 @@ Objetivo: ninguna pantalla de negocio crítica dependa de `store` demo.
 - [x] **Reportes** → `useSalesReport`, `useInventoryReport`
 - [x] **Órdenes de compra** → `useOrders`, `useCreateOrder`, `useUpdateOrderStatus`
 - [x] **Crédito tienda** → `useAdjustClientCredit`, ventas crédito desde API
-- [ ] **Etiquetas inventario** → `useProducts` + `api.updateProduct` (quitar `store.products`)
+- [x] **Etiquetas inventario** → `useProducts` + `api.updateProduct` (quitar `store.products`)
 
 ### A.2 POS y flujos restantes
 
 - [ ] Combos en ventas (listar/crear vía API o ocultar hasta tener datos seed)
-- [ ] Inventario: quitar `store.addPurchaseOrder` del flujo “pedido rápido” → API orders
+- [x] Inventario: quitar `store.addPurchaseOrder` del flujo “pedido rápido” → API orders
 - [ ] Profile: solo datos de `/auth/users/me` (ya parcial)
 
 ### A.3 Calidad frontend

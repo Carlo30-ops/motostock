@@ -1,7 +1,7 @@
 /**
  * Login con branding MotoStock (Fase C).
  */
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { LogIn, Bike } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "../components/ui/input";
 import { useAuthSession } from "../lib/auth";
 import { useLanguage } from "../lib/i18n";
 import { toast } from "sonner";
-import { api } from "../api/client";
+import { api, getAccessToken } from "../api/client";
 import { TwoFactorVerification } from "../modules/auth/TwoFactorVerification";
 
 export function Login() {
@@ -24,6 +24,28 @@ export function Login() {
   const [error, setError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
+
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      if (getAccessToken() && sessionStorage.getItem("2fa_verified") !== "true") {
+        try {
+          const status = await api.getTOTPStatus();
+          if (status.enabled) {
+            setShow2FA(true);
+          } else {
+            navigate(from, { replace: true });
+          }
+        } catch (e) {
+          // Token invalid or expired
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+        }
+      } else if (getAccessToken() && sessionStorage.getItem("2fa_verified") === "true") {
+        navigate(from, { replace: true });
+      }
+    };
+    checkExistingAuth();
+  }, [from, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -49,6 +71,7 @@ export function Login() {
   };
 
   const handle2FASuccess = () => {
+    sessionStorage.setItem("2fa_verified", "true");
     toast.success("Sesión iniciada correctamente");
     navigate(from, { replace: true });
   };

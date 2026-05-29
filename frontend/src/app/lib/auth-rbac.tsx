@@ -122,6 +122,7 @@ export interface User {
   branch_id: number;
   max_discount: number;
   is_active: boolean;
+  totp_enabled: boolean;
   created_at: string;
 }
 
@@ -144,7 +145,7 @@ export function useAuth() {
       role: role || null,
       permissions: role ? ROLE_PERMISSIONS[role] || [] : [],
       branch_id: user?.branch_id || null,
-      isAuthenticated: !!getAccessToken() && !!user,
+      isAuthenticated: !!getAccessToken() && !!user && (!user.totp_enabled || sessionStorage.getItem("2fa_verified") === "true"),
     };
   }, [currentUser]);
 
@@ -173,6 +174,7 @@ export function useAuth() {
   const logout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    sessionStorage.removeItem("2fa_verified");
     window.location.href = "/login";
   };
 

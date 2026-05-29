@@ -9,7 +9,7 @@ import { Button } from "../../../components/ui/button";
 import { Product } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { useInventorySelection } from "@/hooks/useInventorySelection";
-import { useProducts, useCreateOrder } from "@/api/hooks";
+import { useProducts, useCreateOrder, useSuppliers } from "@/api/hooks";
 import { useAuth, Can } from "@/lib/auth-rbac";
 
 // Module imports
@@ -49,6 +49,7 @@ export function InventoryPage() {
 
   const { selectedIds, toggleOne, toggleAll, isSelected } = useInventorySelection();
   const { data: products = [], isLoading, isError, error } = useProducts();
+  const { data: suppliers = [] } = useSuppliers();
   const createOrderMutation = useCreateOrder();
 
   const filters = useInventoryFilters(products);
@@ -70,7 +71,7 @@ export function InventoryPage() {
     return { variant: "success", label: t("stock.inStock") };
   }, [t]);
 
-  const autoGenerateRestock = useCallback(async () => {
+  const autoGenerateRestock = useCallback(() => {
     const lowStockProducts = products.filter((p) => p.stock <= p.reorderThreshold);
     if (lowStockProducts.length === 0) {
       toast.info(
@@ -89,28 +90,31 @@ export function InventoryPage() {
 
     const total = items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
 
-    try {
-      await createOrderMutation.mutateAsync({
-        supplierId: "1", // Por defecto a un proveedor genérico o el primero de la lista si hubiera
-        items,
-        status: "pending_approval",
-        date: new Date().toISOString().split("T")[0],
-        total,
-      } as any);
+    const firstSupplierId = suppliers.length > 0 ? suppliers[0]?.id || "1" : "1";
 
-      toast.success(
-        language === "es"
-          ? `Generada orden de compra para ${lowStockProducts.length} productos`
-          : `Generated purchase order for ${lowStockProducts.length} products`
-      );
-    } catch (e) {
-      toast.error(
-        language === "es"
-          ? "Error al generar la orden de compra"
-          : "Error generating purchase order"
-      );
-    }
-  }, [products, language, createOrderMutation]);
+    createOrderMutation.mutate({
+      supplierId: firstSupplierId,
+      items,
+      status: "pending_approval",
+      date: new Date().toISOString().split("T")[0],
+      total,
+    }, {
+      onSuccess: () => {
+        toast.success(
+          language === "es"
+            ? `Generada orden de compra para ${lowStockProducts.length} productos`
+            : `Generated purchase order for ${lowStockProducts.length} products`
+        );
+      },
+      onError: (err) => {
+        toast.error(
+          language === "es"
+            ? "Error al generar la orden de compra: " + apiErrorMessage(err)
+            : "Error generating purchase order: " + apiErrorMessage(err)
+        );
+      }
+    });
+  }, [products, language, createOrderMutation, suppliers]);
 
   if (isLoading) return <Spinner />;
 

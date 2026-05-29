@@ -124,7 +124,7 @@ export const showInfo = (message: string, title = 'Información') => {
 export const showConfirm = (
   message: string,
   onConfirm: () => void,
-  onCancel?: () => void,
+  _onCancel?: () => void,
   title = 'Confirmar Acción'
 ) => {
   const { addNotification } = useNotificationStore.getState();

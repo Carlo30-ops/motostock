@@ -2,7 +2,6 @@ import { Loader2, Trash2 } from "lucide-react";
 import { Modal } from "@shared/ui/modal";
 import { Button } from "@shared/ui/button";
 import { Input } from "@shared/ui/input";
-import { Can } from "@/lib/auth-rbac";
 import { Product } from "@/lib/store";
 import { InventoryFormData } from "../types";
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Search } from "lucide-react";
 import { Product, store } from "@/lib/store";
 import { Badge } from "@shared/ui/badge";

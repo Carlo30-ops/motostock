@@ -38,14 +38,14 @@ export function NotificationSystem() {
 
   // Auto-mark as read after a short delay
   useEffect(() => {
-    notifications.forEach((notification) => {
-      if (!notification.isRead) {
-        const timer = setTimeout(() => {
-          markAsRead(notification.id);
-        }, 1000);
-        return () => clearTimeout(timer);
-      }
+    const unreadNotifications = notifications.filter(n => !n.isRead);
+    const timers = unreadNotifications.map((notification) => {
+      return setTimeout(() => {
+        markAsRead(notification.id);
+      }, 1000);
     });
+    
+    return () => timers.forEach(timer => clearTimeout(timer));
   }, [notifications, markAsRead]);
 
   return (

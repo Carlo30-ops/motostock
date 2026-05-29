@@ -3,13 +3,10 @@ import { PurchaseOrder } from "../../../lib/store";
 import { cn } from "../../../components/ui/utils";
 import { 
   CheckCircle2, 
-  Circle, 
   Clock, 
   Package, 
   Send, 
-  XCircle, 
-  AlertCircle,
-  Truck
+  AlertCircle
 } from "lucide-react";
 
 interface StatusStepperProps {
@@ -59,6 +56,7 @@ export function StatusStepper({ status, className }: StatusStepperProps) {
         {STEPS.map((step, index) => {
           const stepStatus = getStepStatus(step.id);
           const Icon = step.icon;
+          const nextStep = STEPS[index + 1];
 
           return (
             <React.Fragment key={step.id}>
@@ -92,11 +90,11 @@ export function StatusStepper({ status, className }: StatusStepperProps) {
               </div>
 
               {/* Connector Line */}
-              {index < STEPS.length - 1 && (
+              {nextStep && (
                 <div 
                   className={cn(
                     "flex-1 h-0.5 mx-2 -mt-6",
-                    getStepStatus(STEPS[index + 1].id) === "upcoming" ? "bg-gray-200" : "bg-green-500"
+                    getStepStatus(nextStep.id) === "upcoming" ? "bg-gray-200" : "bg-green-500"
                   )}
                 />
               )}

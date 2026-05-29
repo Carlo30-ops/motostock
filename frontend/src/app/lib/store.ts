@@ -393,6 +393,8 @@ const initialPurchaseOrders: PurchaseOrder[] = [
       status: "sent",
       date: "2026-05-05",
       total: 684.00,
+      createdAt: "2026-05-05T08:00:00Z",
+      updatedAt: "2026-05-05T08:00:00Z",
     },
     {
       id: "po2",
@@ -405,6 +407,8 @@ const initialPurchaseOrders: PurchaseOrder[] = [
       status: "pending",
       date: "2026-05-07",
       total: 1410.00,
+      createdAt: "2026-05-07T10:00:00Z",
+      updatedAt: "2026-05-07T10:00:00Z",
     },
 ];
 

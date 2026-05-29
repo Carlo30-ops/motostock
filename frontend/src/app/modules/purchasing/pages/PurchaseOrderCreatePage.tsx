@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { 
   Plus, 
@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Save,
   PackagePlus,
-  Search,
   AlertCircle
 } from "lucide-react";
 import { 
@@ -43,8 +42,11 @@ export function PurchaseOrderCreatePage() {
     const existingIndex = items.findIndex(i => i.productId === currentProductId);
     if (existingIndex >= 0) {
       const newItems = [...items];
-      newItems[existingIndex].quantity += currentQty;
-      setItems(newItems);
+      const item = newItems[existingIndex];
+      if (item) {
+        item.quantity += currentQty;
+        setItems(newItems);
+      }
     } else {
       setItems([...items, { productId: currentProductId, quantity: currentQty, unitCost: currentCost }]);
     }

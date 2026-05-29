@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { PurchaseOrder } from "../../../lib/store";
 import { 
   Table, 
@@ -27,7 +27,7 @@ export function ReceiveItemsTable({ order, onReceive, isLoading }: ReceiveItemsT
     const item = order.items.find(i => i.productId === productId);
     if (!item) return;
 
-    const remaining = item.quantity - item.receivedQuantity;
+    const remaining = item.quantity - (item.receivedQuantity || 0);
     const safeVal = Math.max(0, Math.min(num, remaining));
 
     setQuantities(prev => ({
@@ -39,7 +39,7 @@ export function ReceiveItemsTable({ order, onReceive, isLoading }: ReceiveItemsT
   const handleFullReceive = () => {
     const fullQtys: Record<string, number> = {};
     order.items.forEach(item => {
-      fullQtys[item.productId] = item.quantity - item.receivedQuantity;
+      fullQtys[item.productId] = item.quantity - (item.receivedQuantity || 0);
     });
     setQuantities(fullQtys);
   };
@@ -76,7 +76,7 @@ export function ReceiveItemsTable({ order, onReceive, isLoading }: ReceiveItemsT
         <TableBody>
           {order.items.map((item) => {
             const product = products?.find(p => String(p.id) === item.productId);
-            const remaining = item.quantity - item.receivedQuantity;
+            const remaining = item.quantity - (item.receivedQuantity || 0);
 
             return (
               <TableRow key={item.productId}>
@@ -86,7 +86,7 @@ export function ReceiveItemsTable({ order, onReceive, isLoading }: ReceiveItemsT
                 </TableCell>
                 <TableCell className="text-center">{item.quantity}</TableCell>
                 <TableCell className="text-center text-green-600 font-medium">
-                  {item.receivedQuantity}
+                  {item.receivedQuantity || 0}
                 </TableCell>
                 <TableCell className="text-center text-blue-600 font-medium">
                   {remaining}
@@ -119,3 +119,4 @@ export function ReceiveItemsTable({ order, onReceive, isLoading }: ReceiveItemsT
     </div>
   );
 }
+

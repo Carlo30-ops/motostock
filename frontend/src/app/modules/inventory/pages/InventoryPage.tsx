@@ -47,7 +47,7 @@ export function InventoryPage() {
   const canDelete = hasPermission("inventory:delete");
   const navigate = useNavigate();
 
-  const { selectedIds, toggleOne, toggleAll, isSelected, clearSelection } = useInventorySelection();
+  const { selectedIds, toggleOne, toggleAll, isSelected } = useInventorySelection();
   const { data: products = [], isLoading, isError, error } = useProducts();
   const createOrderMutation = useCreateOrder();
 

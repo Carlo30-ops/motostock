@@ -4,10 +4,9 @@ import {
   Search, 
   Filter, 
   ArrowRight,
-  MoreVertical,
   Download
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Card, CardContent, CardHeader } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Badge } from "../../../components/ui/badge";
@@ -30,21 +29,21 @@ export function PurchaseOrdersPage() {
   const [searchTerm, setSearchTerm] = React.useState("");
 
   const filteredOrders = orders.filter(order => 
-    order.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (order.supplier || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.id.includes(searchTerm)
   );
 
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case "draft": return "outline";
+      case "draft": return "default";
       case "pending_approval": return "warning";
       case "approved": return "secondary";
-      case "ordered": return "primary";
-      case "partially_received": return "accent";
+      case "ordered": return "secondary";
+      case "partially_received": return "warning";
       case "received": return "success";
       case "rejected": 
       case "cancelled": return "destructive";
-      default: return "outline";
+      default: return "default";
     }
   };
 

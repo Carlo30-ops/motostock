@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { Lock, LogIn } from "lucide-react";
-import { Modal } from "./ui/modal";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
@@ -12,7 +11,6 @@ const WARNING_MS = 2 * 60 * 1000; // 2 minutes before timeout
 
 export function SessionTimeout() {
   const [isLocked, setIsLocked] = useState(false);
-  const [showWarning, setShowWarning] = useState(false);
   const [password, setPassword] = useState("");
   const { data: currentUser } = useCurrentUser();
   
@@ -24,16 +22,13 @@ export function SessionTimeout() {
     
     clearTimeout(timeoutTimer);
     clearTimeout(warningTimer);
-    setShowWarning(false);
 
     warningTimer = setTimeout(() => {
-      setShowWarning(true);
       toast.warning("Tu sesión expirará pronto por inactividad.");
     }, TIMEOUT_MS - WARNING_MS);
 
     timeoutTimer = setTimeout(() => {
       setIsLocked(true);
-      setShowWarning(false);
       toast.error("Sesión bloqueada por inactividad.");
     }, TIMEOUT_MS);
   }, [isLocked]);

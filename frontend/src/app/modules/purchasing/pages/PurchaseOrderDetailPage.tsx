@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { 
   ArrowLeft, 
@@ -22,19 +22,17 @@ import {
 } from "../../../api/hooks";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Badge } from "../../../components/ui/badge";
 import { StatusStepper } from "../components/StatusStepper";
 import { ReceiveItemsTable } from "../components/ReceiveItemsTable";
 import { formatCurrency, formatDate } from "../../../lib/utils";
 import { toast } from "sonner";
-import { Can, useAuth } from "../../../lib/auth-rbac";
+import { Can } from "../../../lib/auth-rbac";
 import { Modal } from "../../../components/ui/modal";
 import { Separator } from "../../../components/ui/separator";
 
 export function PurchaseOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { data: order, isLoading: isOrderLoading } = useOrder(id!);
   const { data: products } = useProducts();
 
@@ -159,7 +157,7 @@ export function PurchaseOrderDetailPage() {
               <div className="space-y-4">
                 {order.items.map((item) => {
                   const product = products?.find(p => String(p.id) === item.productId);
-                  const progress = (item.receivedQuantity / item.quantity) * 100;
+                  const progress = ((item.receivedQuantity || 0) / item.quantity) * 100;
                   
                   return (
                     <div key={item.productId} className="space-y-2">
@@ -170,7 +168,7 @@ export function PurchaseOrderDetailPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">{item.quantity} unidades</p>
-                          <p className="text-xs text-muted-foreground">Costo: {formatCurrency(item.unitCost)}</p>
+                          <p className="text-xs text-muted-foreground">Costo: {formatCurrency(item.unitCost || 0)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
@@ -181,7 +179,7 @@ export function PurchaseOrderDetailPage() {
                           />
                         </div>
                         <span className="text-xs font-medium whitespace-nowrap">
-                          {item.receivedQuantity} / {item.quantity} recibidos
+                          {item.receivedQuantity || 0} / {item.quantity} recibidos
                         </span>
                       </div>
                     </div>

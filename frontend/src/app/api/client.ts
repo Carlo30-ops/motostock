@@ -1,7 +1,7 @@
 /**
  * Fase 1.2: cliente HTTP único con tokens access_token/refresh_token e interceptores 401.
  */
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 import { enqueueOfflineMutation } from "../offline/sync";
 import type {

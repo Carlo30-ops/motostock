@@ -1,7 +1,7 @@
 /** Hooks React Query para la API; Fase 2 añade useDeleteProduct para inventario. */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, CreateSalePayload, CreditAdjustmentPayload, CompanyConfigUpsert } from "./client";
-import type { Client, Product, PurchaseOrder, Supplier, Vehicle, WorkOrder } from "../lib/store";
+import type { Client, Product, PurchaseOrder, Supplier, WorkOrder } from "../lib/store";
 
 export function useProducts() {
   return useQuery({

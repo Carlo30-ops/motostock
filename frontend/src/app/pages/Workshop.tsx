@@ -388,7 +388,7 @@ export function Workshop() {
               required
               className="w-full p-2 border border-input rounded-lg bg-input-background"
               value={orderForm.vehicleId}
-              onChange={(e) => setOrderForm({ ...orderForm, vehicleId: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setOrderForm({ ...orderForm, vehicleId: e.target.value })}
             >
               <option value="">Seleccione un vehículo...</option>
               {vehicles.map((v: Vehicle) => {
@@ -407,7 +407,7 @@ export function Workshop() {
               type="date"
               required
               value={orderForm.scheduledDate}
-              onChange={(e) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setOrderForm({ ...orderForm, scheduledDate: e.target.value })
               }
             />
@@ -440,7 +440,7 @@ export function Workshop() {
               className="w-full p-2 border border-input rounded-lg bg-input-background h-24 resize-none"
               placeholder="Ej: Cliente indica que los frenos suenan..."
               value={orderForm.notes}
-              onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setOrderForm({ ...orderForm, notes: e.target.value })}
             />
           </div>
           <Button type="submit" className="w-full" disabled={createWorkOrder.isPending}>

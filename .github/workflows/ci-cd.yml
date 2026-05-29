@@ -104,6 +104,7 @@ jobs:
       if: always()
       with:
         name: backend-security-reports
+        if-no-files-found: ignore
         path: |
           backend/bandit-report.json
           backend/safety-report.json

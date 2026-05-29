@@ -71,7 +71,7 @@ export function ExitTabletModal({ open, onOpenChange, onSuccess }: ExitTabletMod
           <label className="text-sm font-medium block mb-1">Usuario</label>
           <Input 
             value={exitUsername} 
-            onChange={(e) => setExitUsername(e.target.value)} 
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExitUsername(e.target.value)} 
             placeholder="admin"
             autoFocus
           />
@@ -81,9 +81,9 @@ export function ExitTabletModal({ open, onOpenChange, onSuccess }: ExitTabletMod
           <Input 
             type="password" 
             value={exitPassword} 
-            onChange={(e) => setExitPassword(e.target.value)} 
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExitPassword(e.target.value)} 
             placeholder="••••••••"
-            onKeyDown={(e) => { if (e.key === 'Enter') handleExitTabletMode(); }}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') handleExitTabletMode(); }}
           />
         </div>
         <div className="flex gap-2 pt-2">

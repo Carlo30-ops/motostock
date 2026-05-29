@@ -61,7 +61,7 @@ export function TwoFactorVerification({ onSuccess, onCancel }: TwoFactorVerifica
             placeholder="000000"
             className="text-center text-2xl tracking-[0.5em] font-mono h-14"
             value={code}
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               const val = e.target.value.replace(/\D/g, "");
               if (val.length <= 6) setCode(val);
             }}

@@ -56,7 +56,9 @@ def test_owner_required_middleware_404(client: TestClient, admin_user: models.Us
 
 def test_owner_can_access_dashboard(client: TestClient, owner_user: models.User, db_session: Session):
     """Test de integración para GET /owner/dashboard con datos de prueba"""
+    from app.config import settings
     token = get_token(owner_user)
+    secret_path = settings.OWNER_SECRET_PATH
     
     # Agregar algunos datos de prueba
     with bypass_tenant_context("Seed test data", "system"):
@@ -72,7 +74,7 @@ def test_owner_can_access_dashboard(client: TestClient, owner_user: models.User,
         db_session.add(sale)
         db_session.commit()
 
-    response = client.get("/api/owner/dashboard", headers={"Authorization": f"Bearer {token}"})
+    response = client.get(f"/api/{secret_path}/dashboard", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     data = response.json()
     assert "today_total_amount" in data
@@ -88,7 +90,9 @@ def test_owner_secret_path_works(client: TestClient, owner_user: models.User):
     assert response.status_code == 200
 
 def test_owner_financial_audit_paginated(client: TestClient, owner_user: models.User, db_session: Session):
+    from app.config import settings
     token = get_token(owner_user)
+    secret_path = settings.OWNER_SECRET_PATH
     
     # Crear un log de auditoría
     with bypass_tenant_context("Seed audit log", "system"):
@@ -102,7 +106,7 @@ def test_owner_financial_audit_paginated(client: TestClient, owner_user: models.
         db_session.add(log)
         db_session.commit()
         
-    response = client.get("/api/owner/financial-audit?page=1&limit=10", headers={"Authorization": f"Bearer {token}"})
+    response = client.get(f"/api/{secret_path}/financial-audit?page=1&limit=10", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 1

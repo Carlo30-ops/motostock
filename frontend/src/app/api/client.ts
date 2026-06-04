@@ -3,6 +3,9 @@
  */
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import { toast } from "sonner";
+import camelCase from "lodash/camelCase";
+import snakeCase from "lodash/snakeCase";
+import isPlainObject from "lodash/isPlainObject";
 import { enqueueOfflineMutation } from "../offline/sync";
 import type {
   Client,
@@ -16,12 +19,43 @@ import type {
 
 export interface BackupFile {
   filename: string;
-  size_bytes: number;
-  created_at: number;
+  sizeBytes: number;
+  createdAt: number;
   url?: string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+
+// Casing conversion utilities
+const toCamel = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(toCamel);
+  } else if (isPlainObject(obj)) {
+    return Object.keys(obj).reduce(
+      (result, key) => ({
+        ...result,
+        [camelCase(key)]: toCamel(obj[key]),
+      }),
+      {}
+    );
+  }
+  return obj;
+};
+
+const toSnake = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(toSnake);
+  } else if (isPlainObject(obj)) {
+    return Object.keys(obj).reduce(
+      (result, key) => ({
+        ...result,
+        [snakeCase(key)]: toSnake(obj[key]),
+      }),
+      {}
+    );
+  }
+  return obj;
+};
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -45,9 +79,9 @@ export const loginWithCredentials = async (username: string, password: string) =
   formData.append("password", password);
   
   const res = await apiClient.post("/auth/token", formData);
-  const { access_token, refresh_token } = res.data;
-  localStorage.setItem("access_token", access_token);
-  localStorage.setItem("refresh_token", refresh_token);
+  const { accessToken, refreshToken } = res.data;
+  localStorage.setItem("access_token", accessToken);
+  localStorage.setItem("refresh_token", refreshToken);
   return res.data;
 };
 
@@ -108,6 +142,11 @@ apiClient.interceptors.request.use(async (config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
+  // Convert request data to snake_case for the backend
+  if (config.data && !(config.data instanceof FormData)) {
+    config.data = toSnake(config.data);
+  }
+
   // Lógica Offline: interceptar mutaciones si no hay red
   const isMutation = ["post", "put", "patch", "delete"].includes(config.method?.toLowerCase() || "");
   const isExcluded = offlineExcludedPaths.some(path => config.url?.includes(path));
@@ -126,7 +165,13 @@ apiClient.interceptors.request.use(async (config) => {
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Convert response data to camelCase for the frontend
+    if (response.data && isPlainObject(response.data) || Array.isArray(response.data)) {
+      response.data = toCamel(response.data);
+    }
+    return response;
+  },
   async (error: any) => {
     // Si la petición fue encolada por el interceptor de request
     if (error.isOfflineQueued) {
@@ -201,13 +246,13 @@ export interface CreditAdjustmentPayload {
 
 export interface CompanyConfigUpsert {
   nit: string;
-  company_name: string;
+  companyName: string;
   address: string;
-  dian_resolution: string;
-  resolution_number?: string;
-  invoice_prefix: string;
-  cert_path?: string;
-  cert_password?: string;
+  dianResolution: string;
+  resolutionNumber?: string;
+  invoicePrefix: string;
+  certPath?: string;
+  certPassword?: string;
   provider: string;
 }
 
@@ -216,6 +261,7 @@ export const api = {
   get: <T>(url: string, config?: any) => apiClient.get<T>(url, config),
   post: <T>(url: string, data?: any, config?: any) => apiClient.post<T>(url, data, config),
   put: <T>(url: string, data?: any, config?: any) => apiClient.put<T>(url, data, config),
+  patch: <T>(url: string, data?: any, config?: any) => apiClient.patch<T>(url, data, config),
   delete: <T>(url: string, config?: any) => apiClient.delete<T>(url, config),
 
   // Auth
@@ -278,41 +324,27 @@ export const api = {
     apiClient.post(`/clients/${id}/ledger`, data).then((res) => res.data),
 
   // Purchase Orders
-  getOrders: () =>
-    apiClient.get<PurchaseOrder[]>("/orders/").then((res) => res.data),
   getPurchaseOrders: () =>
     apiClient.get<PurchaseOrder[]>("/orders/").then((res) => res.data),
-  createOrder: (data: any) =>
-    apiClient.post<PurchaseOrder>("/orders/", data).then((res) => res.data),
   createPurchaseOrder: (data: any) =>
     apiClient.post<PurchaseOrder>("/orders/", data).then((res) => res.data),
-  getOrder: (id: number | string) =>
-    apiClient.get<PurchaseOrder>(`/orders/${id}`).then((res) => res.data),
   getPurchaseOrder: (id: number | string) =>
     apiClient.get<PurchaseOrder>(`/orders/${id}`).then((res) => res.data),
-  submitOrder: (id: number | string) =>
+  submitPurchaseOrder: (id: number | string) =>
     apiClient.post(`/orders/${id}/submit`).then((res) => res.data),
-  approveOrder: (id: number | string) =>
+  approvePurchaseOrder: (id: number | string) =>
     apiClient.post(`/orders/${id}/approve`).then((res) => res.data),
-  rejectOrder: (id: number | string, notes?: string) =>
+  rejectPurchaseOrder: (id: number | string, notes?: string) =>
     apiClient.post(`/orders/${id}/reject`, { notes }).then((res) => res.data),
-  markAsOrdered: (id: number | string) =>
+  markPurchaseOrderAsOrdered: (id: number | string) =>
     apiClient.post(`/orders/${id}/mark-ordered`).then((res) => res.data),
-  receiveItems: (id: number | string, items: { productId: string; quantity: number }[]) =>
+  receivePurchaseOrder: (id: number | string, items: { productId: string; quantity: number }[]) =>
     apiClient.post(`/orders/${id}/receive`, { items }).then((res) => res.data),
-  cancelOrder: (id: number | string) =>
+  cancelPurchaseOrder: (id: number | string) =>
     apiClient.post(`/orders/${id}/cancel`).then((res) => res.data),
-  updateOrderStatus: (id: number | string, status: string) =>
-    apiClient
-      .put<PurchaseOrder>(`/orders/${id}/status`, { status })
-      .then((res) => res.data),
   updatePurchaseOrderStatus: (id: number | string, status: string) =>
     apiClient
-      .put<PurchaseOrder>(`/orders/${id}/status`, { status })
-      .then((res) => res.data),
-  receivePurchaseOrder: (id: number | string, data: any) =>
-    apiClient
-      .post<PurchaseOrder>(`/orders/${id}/receive`, data)
+      .patch<PurchaseOrder>(`/orders/${id}/status`, { status })
       .then((res) => res.data),
 
   // Suppliers
@@ -324,17 +356,17 @@ export const api = {
 
   // Workshop
   getServiceTemplates: () =>
-    apiClient.get("/workshop/templates").then((res) => res.data),
+    apiClient.get("/workshop/service-templates").then((res) => res.data),
   getVehicles: () =>
     apiClient.get("/workshop/vehicles").then((res) => res.data),
   createVehicle: (data: any) =>
     apiClient.post("/workshop/vehicles", data).then((res) => res.data),
   getWorkOrders: () =>
-    apiClient.get("/workshop/orders").then((res) => res.data),
+    apiClient.get("/workshop/work-orders").then((res) => res.data),
   createWorkOrder: (data: any) =>
-    apiClient.post("/workshop/orders", data).then((res) => res.data),
+    apiClient.post("/workshop/work-orders", data).then((res) => res.data),
   updateWorkOrderStatus: (id: number | string, status: string) =>
-    apiClient.put(`/workshop/orders/${id}/status`, { status }).then((res) => res.data),
+    apiClient.patch(`/workshop/work-orders/${id}/status`, { status }).then((res) => res.data),
 
   // Reports
   getSalesReport: (from: string, to: string) =>
@@ -355,32 +387,24 @@ export const api = {
   syncOfflineData: (data: any) =>
     apiClient.post("/sync/batch", data).then((res) => res.data),
 
-  // 2FA
-  get2FAStatus: () =>
-    apiClient.get<{ enabled: boolean; backup_codes_remaining?: number }>("/2fa/status").then((res) => res.data),
+  // 2FA / TOTP
   getTOTPStatus: () =>
     apiClient
-      .get<{ enabled: boolean; backup_codes_remaining?: number }>("/2fa/status")
+      .get<{ enabled: boolean; backupCodesRemaining?: number }>("/2fa/status")
       .then((res) => res.data),
-  enable2FA: () =>
-    apiClient.post<{ secret: string; qr_code: string; backup_codes: string[] }>("/2fa/setup").then((res) => res.data),
   setupTOTP: () =>
     apiClient
-      .post<{ secret: string; qr_code: string; backup_codes: string[] }>("/2fa/setup")
+      .post<{ secret: string; qrCode: string; backupCodes: string[] }>("/2fa/setup")
       .then((res) => res.data),
-  verify2FA: (code: string) =>
-    apiClient.post("/2fa/verify", { code }).then((res) => res.data),
   verifyTOTP: (code: string) =>
     apiClient.post("/2fa/verify", { code }).then((res) => res.data),
-  disable2FA: (code?: string) =>
-    apiClient.post("/2fa/disable", { code }).then((res) => res.data),
   disableTOTP: (code: string) =>
     apiClient
       .post<{ success: boolean }>("/2fa/disable", { code })
       .then((res) => res.data),
   regenerateBackupCodes: () =>
     apiClient
-      .post<{ success: boolean; backup_codes: string[] }>(
+      .post<{ success: boolean; backupCodes: string[] }>(
         "/2fa/regenerate-backup-codes"
       )
       .then((res) => res.data),
@@ -392,3 +416,4 @@ export const api = {
   getOwnerInventoryMovements: () => apiClient.get("/owner/inventory-movements").then((res) => res.data),
   getProfitability: (params: any) => apiClient.get("/owner/profitability", { params }).then((res) => res.data),
 };
+

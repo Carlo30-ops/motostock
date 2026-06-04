@@ -2,7 +2,7 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import schemas, models
 from app.database import get_db
@@ -54,7 +54,7 @@ def get_sales(
             detail="Los mecánicos no tienen permiso para ver ventas"
         )
         
-    query = db.query(models.Sale)
+    query = db.query(models.Sale).options(joinedload(models.Sale.items))
     
     if not has_role_access(current_user.role, "admin"):
         query = query.filter(models.Sale.branch_id == current_user.branch_id)
@@ -98,274 +98,201 @@ def create_sale(
             return existing_sale
 
     if not sale.items:
-        raise HTTPException(status_code=400, detail="La venta debe tener al menos un producto")
+        raise HTTPException(status_code=400, detail="La venta debe tener al menos un item")
 
-    calculated_items: list[tuple[schemas.SaleItemIn, models.Product, float]] = []
-    subtotal = 0.0
+    # Validar cupo de crédito si aplica
+    db_client = None
+    if sale.payment_method == "credit":
+        if not sale.client_id:
+            raise HTTPException(status_code=400, detail="Venta a crédito requiere un cliente")
+        db_client = db.query(models.Client).filter(models.Client.id == sale.client_id).first()
+        if not db_client:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    db_sale = models.Sale(
+        branch_id=current_user.branch_id,
+        client_id=sale.client_id,
+        cashier_id=current_user.id,
+        date=sale.date or date.today(),
+        payment_method=models.PaymentMethod(sale.payment_method),
+        discount_pct=sale.discount_pct,
+        offline_id=sale.offline_id,
+        subtotal=0,
+        total=0
+    )
+    
+    db.add(db_sale)
+    db.flush()
+
+    total_subtotal = 0
+
     for item in sale.items:
-        if item.quantity <= 0:
-            raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a cero")
-
-        # Bloqueamos la fila del producto para asegurar que el stock no cambie durante la transacción
-        product = db.query(models.Product).with_for_update().filter(
+        product = db.query(models.Product).filter(
             models.Product.id == item.product_id,
             models.Product.branch_id == current_user.branch_id
         ).first()
         if not product:
-            raise HTTPException(status_code=404, detail=f"Producto {item.product_id} no encontrado en esta sucursal")
+            raise HTTPException(status_code=404, detail=f"Producto {item.product_id} no encontrado")
+        
         if product.stock < item.quantity:
-            raise HTTPException(status_code=400, detail=f"Stock insuficiente para {product.name} (Disponible: {product.stock})")
-
-        expected_unit_price = _money(product.sale_price * _volume_discount_multiplier(item.quantity))
-        _assert_money_matches(
-            f"Precio del producto {product.id}",
-            item.unit_price,
-            expected_unit_price,
-        )
-        subtotal += expected_unit_price * item.quantity
-        calculated_items.append((item, product, expected_unit_price))
-
-    subtotal = _money(subtotal)
-    discount_amount = _money((subtotal * sale.discount_pct) / 100)
-    total = _money(subtotal - discount_amount)
-
-    if sale.expected_total is not None:
-        _assert_money_matches("Total de la venta", sale.expected_total, total)
-
-    client = None
-    if sale.payment_method == "credit":
-        if not sale.client_id:
-            raise HTTPException(status_code=400, detail="Client ID required for credit payment")
-        client = db.query(models.Client).filter(models.Client.id == sale.client_id).first()
-        if not client:
-            raise HTTPException(status_code=404, detail="Client not found")
-        if client.credit_balance < total:
             raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Cupo de credito insuficiente. "
-                    f"Disponible: {_money(client.credit_balance)}, requerido: {total}"
-                ),
+                status_code=400, 
+                detail=f"Stock insuficiente para {product.name}. Disponible: {product.stock}"
             )
 
-    # Create sale record
-    db_sale = models.Sale(
-        branch_id=current_user.branch_id,
-        offline_id=sale.offline_id,
-        client_id=sale.client_id,
-        cashier_id=current_user.id,
-        date=sale.date,
-        subtotal=subtotal,
-        discount_pct=sale.discount_pct,
-        total=total,
-        payment_method=sale.payment_method
-    )
-    db.add(db_sale)
-    db.flush() # Get ID for items
+        # Seguridad: Validar que el precio enviado no haya sido manipulado
+        _assert_money_matches(f"Precio de {product.name}", item.unit_price, product.sale_price)
 
-    # Create items and update stock
-    for item, product, unit_price in calculated_items:
-        product.stock -= item.quantity
+        # Aplicar descuento por volumen si aplica
+        multiplier = _volume_discount_multiplier(item.quantity)
+        actual_unit_price = _money(product.sale_price * multiplier)
         
-        # Automation 1: Auto-generate draft purchase order if stock hits 0
-        if product.stock <= 0:
-            supplier_name = product.supplier or "Unknown Supplier"
-            # Check if pending order already exists for this supplier in this branch
-            existing_order = db.query(models.PurchaseOrder).filter(
-                models.PurchaseOrder.supplier == supplier_name,
-                models.PurchaseOrder.status == models.PurchaseOrderStatus.draft,
-                models.PurchaseOrder.branch_id == current_user.branch_id
-            ).first()
-            
-            if existing_order:
-                # Add item to existing draft
-                existing_item = db.query(models.PurchaseOrderItem).filter(
-                    models.PurchaseOrderItem.order_id == existing_order.id,
-                    models.PurchaseOrderItem.product_id == product.id
-                ).first()
-                if existing_item:
-                    existing_item.quantity += product.reorder_threshold
-                    existing_order.total += (product.cost_price * product.reorder_threshold)
-                else:
-                    new_order_item = models.PurchaseOrderItem(
-                        order_id=existing_order.id,
-                        product_id=product.id,
-                        quantity=product.reorder_threshold,
-                        unit_cost=product.cost_price
-                    )
-                    db.add(new_order_item)
-                    existing_order.total += (product.cost_price * product.reorder_threshold)
-            else:
-                # Create new draft order
-                new_order = models.PurchaseOrder(
-                    branch_id=current_user.branch_id,
-                    supplier=supplier_name,
-                    status=models.PurchaseOrderStatus.draft,
-                    date=sale.date,
-                    total=product.cost_price * product.reorder_threshold,
-                    notes="Auto-generated due to zero stock"
-                )
-                db.add(new_order)
-                db.flush()
-                new_order_item = models.PurchaseOrderItem(
-                    order_id=new_order.id,
-                    product_id=product.id,
-                    quantity=product.reorder_threshold,
-                    unit_cost=product.cost_price
-                )
-                db.add(new_order_item)
-
-        # Automation 2: Update client's last service date if it's an oil change
-        if product.category == "Oil & Lubricants" and sale.client_id:
-            client_to_update = db.query(models.Client).filter(models.Client.id == sale.client_id).first()
-            if client_to_update:
-                client_to_update.last_service_date = sale.date
-
         db_item = models.SaleItem(
             sale_id=db_sale.id,
-            product_id=item.product_id,
+            product_id=product.id,
             quantity=item.quantity,
-            unit_price=unit_price
+            unit_price=actual_unit_price
         )
         db.add(db_item)
-
-    # Handle store credit as available credit limit.
-    if sale.payment_method == "credit":
-        client.credit_balance = _money(client.credit_balance - total)
         
+        # Descontar stock
+        product.stock -= item.quantity
+        
+        # Registrar movimiento de inventario
+        movement = models.InventoryMovement(
+            product_id=product.id,
+            branch_id=current_user.branch_id,
+            user_id=current_user.id,
+            movement_type=models.MovementType.sale,
+            quantity=-item.quantity,
+            previous_stock=product.stock + item.quantity,
+            new_stock=product.stock,
+            previous_cost=product.cost_price,
+            new_cost=product.cost_price,
+            unit_cost=product.cost_price,
+            reference_type="sale",
+            reference_id=str(db_sale.id)
+        )
+        db.add(movement)
+
+        total_subtotal += actual_unit_price * item.quantity
+
+    # Calcular total con descuento global
+    calculated_total = _money(total_subtotal * (1 - (sale.discount_pct / 100)))
+    
+    # Seguridad: Validar contra expected_total si se proporciona
+    if sale.expected_total is not None:
+        _assert_money_matches("Total de venta", sale.expected_total, calculated_total)
+
+    # Validar cupo de crédito
+    if sale.payment_method == "credit" and db_client:
+        if db_client.credit_balance < calculated_total:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cupo insuficiente. Disponible: {db_client.credit_balance}"
+            )
+        db_client.credit_balance = _money(db_client.credit_balance - calculated_total)
+        
+        # Registrar movimiento en el ledger del cliente
         ledger_entry = models.CreditLedger(
-            client_id=client.id,
-            amount=-total,
-            description=f"Sale #{db_sale.id}"
+            client_id=db_client.id,
+            organization_id=current_user.organization_id,
+            amount=-calculated_total,
+            description=f"Venta #{db_sale.id}"
         )
         db.add(ledger_entry)
 
+    db_sale.subtotal = _money(total_subtotal)
+    db_sale.total = calculated_total
+    
     db.commit()
     db.refresh(db_sale)
-
+    
     audit_logger.log_action(
         actor_id=current_user.id,
         target_id=db_sale.id,
         action="create_sale",
         resource="sales",
         branch_id=current_user.branch_id,
-        details={"total": total, "client_id": sale.client_id}
+        details={"total": calculated_total, "items_count": len(sale.items)}
     )
-
+    
     return db_sale
 
 
-@router.get("/combos", response_model=list[schemas.ComboOut])
-def get_combos(
-    current_user: Annotated[models.User, Depends(get_current_active_user)],
-    db: Session = Depends(get_db)
-):
-    """Lectura de combos prohibida para Mechanic."""
-    if current_user.role == "mechanic":
-         raise HTTPException(status_code=403, detail="Acceso denegado")
-    return db.query(models.Combo).all()
-
-
-@router.post("/combos", response_model=schemas.ComboOut, status_code=status.HTTP_201_CREATED)
-def create_combo(
-    combo: schemas.ComboCreate, 
-    current_user: Annotated[models.User, Depends(require_supervisor)],
-    db: Session = Depends(get_db)
-):
-    """Solo Supervisor+ puede crear combos."""
-    db_combo = models.Combo(name=combo.name, price=combo.price)
-    db.add(db_combo)
-    db.flush()
-    
-    for item in combo.items:
-        db_item = models.ComboItem(
-            combo_id=db_combo.id,
-            product_id=item.product_id,
-            quantity=item.quantity
-        )
-        db.add(db_item)
-        
-    db.commit()
-    db.refresh(db_combo)
-
-    audit_logger.log_action(
-        actor_id=current_user.id,
-        target_id=db_combo.id,
-        action="create_combo",
-        resource="sales",
-        branch_id=current_user.branch_id
-    )
-
-    return db_combo
-
-
-@router.post("/{sale_id}/cancel", response_model=schemas.SaleOut)
-def cancel_sale(
+@router.get("/{sale_id}", response_model=schemas.SaleOut)
+def get_sale(
     sale_id: int,
     current_user: Annotated[models.User, Depends(get_current_active_user)],
     db: Session = Depends(get_db)
 ):
-    """
-    Anular/cancelar una venta (Soft Delete).
-    Mechanic: Prohibido.
-    Cashier/Supervisor: Solo su propia sucursal.
-    Admin+: Todas las sucursales.
-    """
-    if current_user.role == "mechanic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Los mecánicos no tienen permiso para cancelar ventas"
-        )
+    """Obtener detalle de una venta."""
+    query = db.query(models.Sale).options(joinedload(models.Sale.items)).filter(models.Sale.id == sale_id)
+    
+    if not has_role_access(current_user.role, "admin"):
+        query = query.filter(models.Sale.branch_id == current_user.branch_id)
+        
+    db_sale = query.first()
+    if not db_sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+        
+    return db_sale
 
-    # Bloqueamos la fila de la venta para evitar race conditions
-    sale = db.query(models.Sale).with_for_update().filter(models.Sale.id == sale_id).first()
-    if not sale:
+
+@router.delete("/{sale_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_sale(
+    sale_id: int,
+    current_user: Annotated[models.User, Depends(require_supervisor)],
+    db: Session = Depends(get_db)
+):
+    """Anular venta (Solo Supervisor+)."""
+    query = db.query(models.Sale).filter(models.Sale.id == sale_id)
+    
+    if not has_role_access(current_user.role, "admin"):
+        query = query.filter(models.Sale.branch_id == current_user.branch_id)
+        
+    db_sale = query.first()
+    if not db_sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    if not has_role_access(current_user.role, "admin") and sale.branch_id != current_user.branch_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No tiene permiso para cancelar ventas de otra sucursal"
-        )
+    # Si fue a crédito, devolver cupo
+    if db_sale.payment_method == models.PaymentMethod.credit and db_sale.client_id:
+        db_client = db.query(models.Client).filter(models.Client.id == db_sale.client_id).first()
+        if db_client:
+            db_client.credit_balance = _money(db_client.credit_balance + db_sale.total)
 
-    if sale.deleted_at is not None:
-        raise HTTPException(status_code=400, detail="La venta ya ha sido cancelada")
-
-    # 1. Soft-delete the sale
-    sale.delete()
-
-    # 2. Devolver stock de los productos
-    for item in sale.items:
-        product = db.query(models.Product).with_for_update().filter(
-            models.Product.id == item.product_id,
-            models.Product.branch_id == sale.branch_id
-        ).first()
+    # Devolver stock
+    for item in db_sale.items:
+        product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
         if product:
             product.stock += item.quantity
-
-    # 3. Si fue pago a crédito, revertir saldo y ledger
-    if sale.payment_method == "credit" and sale.client_id:
-        client = db.query(models.Client).with_for_update().filter(models.Client.id == sale.client_id).first()
-        if client:
-            client.credit_balance = round(client.credit_balance + sale.total, 2)
-            # Registrar reversión en el libro de crédito
-            ledger_entry = models.CreditLedger(
-                client_id=client.id,
-                amount=sale.total,
-                description=f"Reversión Venta #{sale.id} (Cancelada)"
+            
+            # Registrar movimiento
+            movement = models.InventoryMovement(
+                product_id=product.id,
+                branch_id=current_user.branch_id,
+                user_id=current_user.id,
+                movement_type=models.MovementType.adjustment,
+                quantity=item.quantity,
+                previous_stock=product.stock - item.quantity,
+                new_stock=product.stock,
+                previous_cost=product.cost_price,
+                new_cost=product.cost_price,
+                unit_cost=product.cost_price,
+                reference_type="sale_void",
+                reference_id=str(db_sale.id)
             )
-            db.add(ledger_entry)
+            db.add(movement)
 
-    # 4. Registrar acción en auditoría
+    db.delete(db_sale)
+    db.commit()
+    
     audit_logger.log_action(
         actor_id=current_user.id,
-        target_id=sale.id,
-        action="cancel_sale",
+        target_id=sale_id,
+        action="delete_sale",
         resource="sales",
-        branch_id=current_user.branch_id if not has_role_access(current_user.role, "admin") else sale.branch_id,
-        details={"total": sale.total, "client_id": sale.client_id}
+        branch_id=current_user.branch_id
     )
-
-    db.commit()
-    db.refresh(sale)
-    return sale
+    
+    return None

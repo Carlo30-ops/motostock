@@ -46,8 +46,8 @@ export function Profile() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [verifyToken, setVerifyToken] = useState("");
   const [setupData, setSetupData] = useState<{
-    qr_code: string;
-    backup_codes: string[];
+    qrCode: string;
+    backupCodes: string[];
   } | null>(null);
   const [lastBackupCodes, setLastBackupCodes] = useState<string[]>([]);
 
@@ -73,10 +73,10 @@ export function Profile() {
     enable2FA.mutate(undefined, {
       onSuccess: (res) => {
         setSetupData({
-          qr_code: res.qr_code,
-          backup_codes: res.backup_codes,
+          qrCode: res.qrCode,
+          backupCodes: res.backupCodes,
         });
-        setLastBackupCodes(res.backup_codes);
+        setLastBackupCodes(res.backupCodes);
         toast.success("Escanea el código QR con tu app de autenticación");
       },
       onError: (err) => toast.error(apiErrorMessage(err)),
@@ -107,7 +107,7 @@ export function Profile() {
   const handleRegenerateBackup = () => {
     regenerateBackup.mutate(undefined, {
       onSuccess: (res) => {
-        setLastBackupCodes(res.backup_codes);
+        setLastBackupCodes(res.backupCodes);
         toast.success("Códigos de respaldo regenerados");
       },
       onError: (err) => toast.error(apiErrorMessage(err)),
@@ -228,7 +228,7 @@ export function Profile() {
                 <>
                   <p className="text-sm text-muted-foreground">
                     2FA activo. Códigos de respaldo restantes:{" "}
-                    <strong>{tfaStatus?.backup_codes_remaining ?? 0}</strong>
+                    <strong>{tfaStatus?.backupCodesRemaining ?? 0}</strong>
                   </p>
                   <form onSubmit={handleVerify2FA} className="flex gap-2">
                     <Input
@@ -275,7 +275,7 @@ export function Profile() {
                     <div className="space-y-4">
                       <div className="flex justify-center">
                         <img
-                          src={setupData.qr_code}
+                          src={setupData.qrCode}
                           alt="Código QR 2FA"
                           className="w-48 h-48 border rounded-lg"
                         />
@@ -285,7 +285,7 @@ export function Profile() {
                           Guarda estos códigos de respaldo (solo se muestran una vez):
                         </p>
                         <ul className="text-xs font-mono grid grid-cols-2 gap-1">
-                          {setupData.backup_codes.map((code) => (
+                          {setupData.backupCodes.map((code) => (
                             <li key={code}>{code}</li>
                           ))}
                         </ul>

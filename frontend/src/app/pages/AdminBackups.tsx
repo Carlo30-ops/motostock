@@ -126,7 +126,7 @@ export function AdminBackups() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Último Backup Exitoso</p>
               <h3 className="text-xl font-bold text-foreground mt-1">
-                {lastBackup ? format(new Date(lastBackup.created_at * 1000), "dd/MM/yyyy HH:mm") : "Ninguno"}
+                {lastBackup ? format(new Date(lastBackup.createdAt * 1000), "dd/MM/yyyy HH:mm") : "Ninguno"}
               </h3>
             </div>
           </div>
@@ -154,7 +154,7 @@ export function AdminBackups() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Espacio Utilizado</p>
               <h3 className="text-xl font-bold text-foreground mt-1">
-                {formatBytes(backups?.reduce((acc: number, curr: BackupFile) => acc + curr.size_bytes, 0) || 0)}
+                {formatBytes(backups?.reduce((acc: number, curr: BackupFile) => acc + curr.sizeBytes, 0) || 0)}
               </h3>
             </div>
           </div>
@@ -205,10 +205,10 @@ export function AdminBackups() {
                       {backup.filename}
                     </td>
                     <td className="px-6 py-4">
-                      {format(new Date(backup.created_at * 1000), "PPP p", { locale: es })}
+                      {format(new Date(backup.createdAt * 1000), "PPP p", { locale: es })}
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant="secondary">{formatBytes(backup.size_bytes)}</Badge>
+                      <Badge variant="secondary">{formatBytes(backup.sizeBytes)}</Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button variant="ghost" size="sm" onClick={() => setSelectedBackup(backup)}>
@@ -241,11 +241,11 @@ export function AdminBackups() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tamaño</label>
-                <p className="mt-1 font-medium">{formatBytes(selectedBackup.size_bytes)}</p>
+                <p className="mt-1 font-medium">{formatBytes(selectedBackup.sizeBytes)}</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Creado</label>
-                <p className="mt-1 font-medium">{format(new Date(selectedBackup.created_at * 1000), "dd/MM/yyyy HH:mm")}</p>
+                <p className="mt-1 font-medium">{format(new Date(selectedBackup.createdAt * 1000), "dd/MM/yyyy HH:mm")}</p>
               </div>
             </div>
             <div className="pt-4 flex gap-3">

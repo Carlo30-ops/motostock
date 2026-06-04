@@ -4,28 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useCompanyConfig, useUpsertCompanyConfig } from "../api/hooks";
+import { CompanyConfigUpsert } from "../api/client";
 
-type FormState = {
-  nit: string;
-  company_name: string;
-  address: string;
-  dian_resolution: string;
-  resolution_number: string;
-  invoice_prefix: string;
-  cert_path: string;
-  cert_password: string;
-  provider: string;
-};
+type FormState = CompanyConfigUpsert;
 
 const emptyForm: FormState = {
   nit: "",
-  company_name: "",
+  companyName: "",
   address: "",
-  dian_resolution: "",
-  resolution_number: "",
-  invoice_prefix: "FV",
-  cert_path: "./certs/cert.p12",
-  cert_password: "",
+  dianResolution: "",
+  resolutionNumber: "",
+  invoicePrefix: "FV",
+  certPath: "./certs/cert.p12",
+  certPassword: "",
   provider: "siigo",
 };
 
@@ -38,13 +29,13 @@ export function AdminDianConfig() {
     if (data) {
       setForm({
         nit: data.nit ?? "",
-        company_name: data.company_name ?? "",
+        companyName: data.companyName ?? "",
         address: data.address ?? "",
-        dian_resolution: data.dian_resolution ?? "",
-        resolution_number: data.resolution_number ?? "",
-        invoice_prefix: data.invoice_prefix ?? "FV",
-        cert_path: data.cert_path ?? "./certs/cert.p12",
-        cert_password: data.cert_password ?? "",
+        dianResolution: data.dianResolution ?? "",
+        resolutionNumber: data.resolutionNumber ?? "",
+        invoicePrefix: data.invoicePrefix ?? "FV",
+        certPath: data.certPath ?? "./certs/cert.p12",
+        certPassword: data.certPassword ?? "",
         provider: data.provider ?? "siigo",
       });
     }
@@ -88,7 +79,7 @@ export function AdminDianConfig() {
                 </div>
                 <div>
                   <label className="block mb-2">Razon social</label>
-                  <Input value={form.company_name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, company_name: e.target.value })} required />
+                  <Input value={form.companyName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, companyName: e.target.value })} required />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block mb-2">Direccion</label>
@@ -96,15 +87,15 @@ export function AdminDianConfig() {
                 </div>
                 <div>
                   <label className="block mb-2">Resolucion DIAN</label>
-                  <Input value={form.dian_resolution} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, dian_resolution: e.target.value })} required />
+                  <Input value={form.dianResolution} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, dianResolution: e.target.value })} required />
                 </div>
                 <div>
                   <label className="block mb-2">Numero resolucion</label>
-                  <Input value={form.resolution_number} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, resolution_number: e.target.value })} />
+                  <Input value={form.resolutionNumber} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, resolutionNumber: e.target.value })} />
                 </div>
                 <div>
                   <label className="block mb-2">Prefijo factura</label>
-                  <Input value={form.invoice_prefix} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, invoice_prefix: e.target.value })} required />
+                  <Input value={form.invoicePrefix} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, invoicePrefix: e.target.value })} required />
                 </div>
                 <div>
                   <label className="block mb-2">Proveedor</label>
@@ -112,11 +103,11 @@ export function AdminDianConfig() {
                 </div>
                 <div>
                   <label className="block mb-2">Ruta certificado</label>
-                  <Input value={form.cert_path} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, cert_path: e.target.value })} />
+                  <Input value={form.certPath} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, certPath: e.target.value })} />
                 </div>
                 <div>
                   <label className="block mb-2">Password certificado</label>
-                  <Input type="password" value={form.cert_password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, cert_password: e.target.value })} />
+                  <Input type="password" value={form.certPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, certPassword: e.target.value })} />
                 </div>
               </div>
 

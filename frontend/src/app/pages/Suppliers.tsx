@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Modal } from "../components/ui/modal";
-import type { Supplier } from "../lib/store";
+import type { PurchaseOrder, Supplier } from "../lib/store";
 import { formatCurrency, formatDate } from "../lib/utils";
 import {
   useSuppliers,
@@ -30,7 +30,7 @@ function apiErrorMessage(error: unknown): string {
 
 export function Suppliers() {
   const { data: suppliers = [], isLoading, isError, error } = useSuppliers();
-  const { data: orders = [] } = useOrders();
+  const { data: orders = [] } = useOrders() as { data: PurchaseOrder[] };
   const createSupplier = useCreateSupplier();
   const updateSupplier = useUpdateSupplier();
 
@@ -262,7 +262,7 @@ export function Suppliers() {
                             variant={
                               order.status === "received"
                                 ? "success"
-                                : order.status === "sent"
+                                : order.status === "sent" || order.status === "ordered"
                                   ? "secondary"
                                   : "warning"
                             }

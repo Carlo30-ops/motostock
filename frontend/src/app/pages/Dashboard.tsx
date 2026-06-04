@@ -31,19 +31,21 @@ import {
 import { format, subDays, startOfDay, isSameDay, isSameMonth } from "date-fns";
 import { KpiCard } from "../components/ui/kpi-card";
 import { PageSkeleton } from "../components/ui/page-skeleton";
+import { BackupFile } from "../api/client";
+import { Product, PurchaseOrder, Sale } from "../lib/store";
 
 export function Dashboard() {
   const { t, language } = useLanguage();
   const [chartPeriod, setChartPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
 
-  const { data: sales = [], isLoading: salesLoading } = useSales();
-  const { data: products = [] } = useProducts();
-  const { data: orders = [] } = useOrders();
+  const { data: sales = [], isLoading: salesLoading } = useSales() as { data: Sale[], isLoading: boolean };
+  const { data: products = [] } = useProducts() as { data: Product[] };
+  const { data: orders = [] } = useOrders() as { data: PurchaseOrder[] };
   const { data: clients = [] } = useClients();
   const { data: inventoryReport } = useInventoryReport();
-  const { data: backups } = useBackups();
+  const { data: backups = [] } = useBackups() as { data: BackupFile[] };
 
-  const lastBackup = backups && backups.length > 0 ? backups[0] : null;
+  const lastBackup = backups.length > 0 ? backups[0] : null;
   const today = startOfDay(new Date());
 
   const yesterday = subDays(today, 1);
@@ -123,7 +125,7 @@ export function Dashboard() {
     sales.forEach((sale) => {
       sale.items.forEach((item) => {
         const current = productSales.get(item.productId) || 0;
-        productSales.set(item.productId, current + item.price * item.quantity);
+        productSales.set(item.productId, current + item.unitPrice * item.quantity);
       });
     });
 
@@ -145,8 +147,8 @@ export function Dashboard() {
         .filter((r: any) => r.status === "Low Stock" || r.status === "Out of Stock")
         .slice(0, 5)
         .map((r: any) => ({
-          id: String(r.product_id),
-          name: r.product_name,
+          id: String(r.productId),
+          name: r.productName,
           brand: r.brand,
           stock: r.stock,
         }));
@@ -162,7 +164,7 @@ export function Dashboard() {
     ).length ??
     products.filter((p) => p.stock <= p.reorderThreshold).length;
 
-  const pendingOrders = orders.filter((o) => o.status === "pending").length;
+  const pendingOrders = orders.filter((o) => o.status === "pending" || o.status === "pending_approval").length;
 
   const recentSales = useMemo(
     () =>
@@ -325,7 +327,7 @@ export function Dashboard() {
               ) : (
                 recentSales.map((sale) => {
                   const client = sale.clientId
-                    ? clients.find((c) => c.id === sale.clientId)
+                    ? clients?.find((c: any) => c.id === sale.clientId)
                     : null;
                   return (
                     <div key={sale.id} className="flex items-center justify-between">
@@ -362,7 +364,7 @@ export function Dashboard() {
               </span>
               <span className="text-xs font-medium leading-none mt-1">
                 {lastBackup
-                  ? format(new Date(lastBackup.created_at * 1000), "dd/MM HH:mm")
+                  ? format(new Date(lastBackup.createdAt * 1000), "dd/MM HH:mm")
                   : "Ninguno"}
               </span>
             </div>

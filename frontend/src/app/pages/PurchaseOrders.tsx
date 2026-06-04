@@ -39,14 +39,14 @@ export function PurchaseOrders() {
   const canSeeCosts = hasPermission("inventory:viewCosts");
   const { data: products = [] } = useProducts();
   const { data: suppliers = [] } = useSuppliers();
-  const { data: orders = [], isLoading } = useOrders();
+  const { data: orders = [], isLoading } = useOrders() as { data: PurchaseOrder[], isLoading: boolean };
   const createOrder = useCreateOrder();
   const updateOrderStatus = useUpdateOrderStatus();
 
   const [showModal, setShowModal] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<
-    { productId: string; quantity: number; cost: number }[]
+    { productId: string; quantity: number; unitCost: number }[]
   >([]);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState(0);
@@ -103,7 +103,7 @@ export function PurchaseOrders() {
     } else {
       setSelectedProducts([
         ...selectedProducts,
-        { productId: selectedProductId, quantity, cost: product.costPrice },
+        { productId: selectedProductId, quantity, unitCost: product.costPrice },
       ]);
     }
     setSelectedProductId("");
@@ -116,7 +116,7 @@ export function PurchaseOrders() {
 
   const handleStatusAction = (order: PurchaseOrder) => {
     const next: PurchaseOrder["status"] =
-      order.status === "pending" ? "sent" : "received";
+      order.status === "pending" || order.status === "draft" ? "sent" : "received";
     updateOrderStatus.mutate(
       { id: order.id, status: next },
       {
@@ -128,9 +128,12 @@ export function PurchaseOrders() {
 
   const getStatusIcon = (status: PurchaseOrder["status"]) => {
     switch (status) {
+      case "draft":
       case "pending":
+      case "pending_approval":
         return <Clock className="w-4 h-4" />;
       case "sent":
+      case "ordered":
         return <Package className="w-4 h-4" />;
       case "received":
         return <Check className="w-4 h-4" />;
@@ -141,19 +144,25 @@ export function PurchaseOrders() {
 
   const getStatusVariant = (status: PurchaseOrder["status"]) => {
     switch (status) {
+      case "draft":
       case "pending":
+      case "pending_approval":
         return "warning" as const;
       case "sent":
+      case "ordered":
         return "secondary" as const;
       case "received":
         return "success" as const;
+      case "rejected":
+      case "cancelled":
+        return "destructive" as const;
       default:
         return "default" as const;
     }
   };
 
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
-  const sentCount = orders.filter((o) => o.status === "sent").length;
+  const pendingCount = orders.filter((o) => o.status === "pending" || o.status === "draft" || o.status === "pending_approval").length;
+  const sentCount = orders.filter((o) => o.status === "sent" || o.status === "ordered").length;
   const receivedCount = orders.filter((o) => o.status === "received").length;
 
   const sortedOrders = [...orders].sort(
@@ -235,12 +244,12 @@ export function PurchaseOrders() {
                         Orden #{order.id} • {formatDate(order.date)}
                       </p>
                       <div className="space-y-1">
-                        {order.items.map((item) => {
+                        {order.items.map((item, idx) => {
                           const product = products.find((p) => p.id === item.productId);
                           return (
-                            <p key={item.productId} className="text-sm">
+                            <p key={`${item.productId}-${idx}`} className="text-sm">
                               {product?.name ?? "Producto"} — {item.quantity} uds.
-                              {canSeeCosts ? ` @ ${formatCurrency(item.cost ?? 0)}` : ""}
+                              {canSeeCosts ? ` @ ${formatCurrency(item.unitCost ?? 0)}` : ""}
                             </p>
                           );
                         })}
@@ -251,15 +260,15 @@ export function PurchaseOrders() {
                         <p className="text-sm text-muted-foreground">Total</p>
                         <p className="text-xl font-medium">{formatCurrency(order.total)}</p>
                       </div>
-                      {order.status !== "received" && (
+                      {order.status !== "received" && order.status !== "cancelled" && order.status !== "rejected" && (
                         <Can permission="orders:edit">
                           <Button
                             size="sm"
-                            variant={order.status === "pending" ? "accent" : "primary"}
+                            variant={order.status === "pending" || order.status === "draft" ? "accent" : "primary"}
                             disabled={updateOrderStatus.isPending}
                             onClick={() => handleStatusAction(order)}
                           >
-                            {order.status === "pending" ? "Marcar enviada" : "Marcar recibida"}
+                            {order.status === "pending" || order.status === "draft" ? "Marcar enviada" : "Marcar recibida"}
                           </Button>
                         </Can>
                       )}
@@ -337,8 +346,8 @@ export function PurchaseOrders() {
                         <p className="font-medium">{product?.name}</p>
                         {canSeeCosts && (
                           <p className="text-sm text-muted-foreground">
-                            {item.quantity} × {formatCurrency(item.cost)} ={" "}
-                            {formatCurrency(item.quantity * item.cost)}
+                            {item.quantity} × {formatCurrency(item.unitCost)} ={" "}
+                            {formatCurrency(item.quantity * item.unitCost)}
                           </p>
                         )}
                       </div>

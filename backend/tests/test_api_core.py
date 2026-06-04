@@ -119,7 +119,7 @@ def test_sale_rejects_tampered_price(client: TestClient, auth_headers: dict):
         },
     )
     assert sale.status_code == 400
-    assert "Precio del producto" in sale.json()["error"]["message"]
+    assert "no coincide con el calculo del servidor" in sale.json()["error"]["message"]
 
     client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
 
@@ -154,7 +154,7 @@ def test_sale_rejects_tampered_total(client: TestClient, auth_headers: dict):
         },
     )
     assert sale.status_code == 400
-    assert "Total de la venta" in sale.json()["error"]["message"]
+    assert "no coincide con el calculo del servidor" in sale.json()["error"]["message"]
 
     client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
 
@@ -261,7 +261,7 @@ def test_credit_sale_rejects_insufficient_available_credit(client: TestClient, a
         },
     )
     assert sale.status_code == 400
-    assert "Cupo de credito insuficiente" in sale.json()["error"]["message"]
+    assert "Cupo insuficiente" in sale.json()["error"]["message"]
 
     client.delete(f"/api/inventory/{product_id}", headers=auth_headers)
 

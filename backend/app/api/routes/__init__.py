@@ -26,7 +26,6 @@ api_router = APIRouter()
 
 api_router.include_router(health.router, prefix="/health", tags=["system"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
-api_router.include_router(owner.router, prefix="/owner", tags=["owner"])
 # Alias secreto para el dueño
 if hasattr(settings, "OWNER_SECRET_PATH") and settings.OWNER_SECRET_PATH:
     api_router.include_router(owner.router, prefix=f"/{settings.OWNER_SECRET_PATH}", tags=["owner"])

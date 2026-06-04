@@ -16,7 +16,7 @@ export interface Organization {
   uuid: string;
   name: string;
   slug: string;
-  is_active: boolean;
+  isActive: boolean;
   planTier: string;
 }
 
@@ -59,7 +59,7 @@ export interface Sale {
   branchId?: number;
   offlineId?: string;
   date: string;
-  items: { productId: string; quantity: number; price: number }[];
+  items: { productId: string; quantity: number; unitPrice: number }[];
   total: number;
   paymentMethod: "cash" | "card" | "credit" | "nequi";
   clientId?: string;
@@ -86,8 +86,7 @@ export interface PurchaseOrder {
     productId: string; 
     quantity: number; 
     receivedQuantity?: number; 
-    unitCost?: number;
-    cost?: number; 
+    unitCost: number;
   }[];
   status: 
     | "draft" 
@@ -293,7 +292,7 @@ const initialSales: Sale[] = [
       id: "s1",
       branchId: 1,
       date: "2026-05-07",
-      items: [{ productId: "1", quantity: 2, price: 42.99 }],
+      items: [{ productId: "1", quantity: 2, unitPrice: 42.99 }],
       total: 85.98,
       paymentMethod: "card",
       clientId: "cl1",
@@ -303,8 +302,8 @@ const initialSales: Sale[] = [
       branchId: 1,
       date: "2026-05-06",
       items: [
-        { productId: "4", quantity: 1, price: 55.99 },
-        { productId: "2", quantity: 2, price: 12.99 },
+        { productId: "4", quantity: 1, unitPrice: 55.99 },
+        { productId: "2", quantity: 2, unitPrice: 12.99 },
       ],
       total: 81.97,
       paymentMethod: "cash",
@@ -313,7 +312,7 @@ const initialSales: Sale[] = [
       id: "s3",
       branchId: 1,
       date: "2026-05-05",
-      items: [{ productId: "5", quantity: 1, price: 189.99 }],
+      items: [{ productId: "5", quantity: 1, unitPrice: 189.99 }],
       total: 189.99,
       paymentMethod: "credit",
       clientId: "cl2",
@@ -389,7 +388,7 @@ const initialPurchaseOrders: PurchaseOrder[] = [
       id: "po1",
       branchId: 1,
       supplierId: "sup1",
-      items: [{ productId: "1", quantity: 24, cost: 28.50 }],
+      items: [{ productId: "1", quantity: 24, unitCost: 28.50 }],
       status: "sent",
       date: "2026-05-05",
       total: 684.00,
@@ -401,8 +400,8 @@ const initialPurchaseOrders: PurchaseOrder[] = [
       branchId: 1,
       supplierId: "sup2",
       items: [
-        { productId: "3", quantity: 10, cost: 42.00 },
-        { productId: "6", quantity: 6, cost: 165.00 },
+        { productId: "3", quantity: 10, unitCost: 42.00 },
+        { productId: "6", quantity: 6, unitCost: 165.00 },
       ],
       status: "pending",
       date: "2026-05-07",

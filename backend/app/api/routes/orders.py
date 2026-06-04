@@ -1,7 +1,7 @@
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import schemas, models
 from app.database import get_db
@@ -27,7 +27,7 @@ def get_orders(
     Listar órdenes de compra.
     Filtra por sucursal para roles < admin.
     """
-    query = db.query(models.PurchaseOrder)
+    query = db.query(models.PurchaseOrder).options(joinedload(models.PurchaseOrder.items))
     
     if not has_role_access(current_user.role, "admin"):
         query = query.filter(models.PurchaseOrder.branch_id == current_user.branch_id)
@@ -102,19 +102,30 @@ def mark_as_ordered(
 @router.post("/{order_id}/receive", response_model=schemas.PurchaseOrderOut)
 def receive_items(
     order_id: int,
-    receipt: schemas.PurchaseOrderReceipt,
+    payload: schemas.PurchaseOrderReceipt,
     current_user: Annotated[models.User, Depends(require_role("supervisor"))],
     db: Session = Depends(get_db)
 ):
-    """Registra la recepción de mercancía."""
-    return PurchaseOrderService.receive_items(db, order_id, receipt.items, current_user)
+    """Registra la recepción de productos."""
+    return PurchaseOrderService.receive_items(db, order_id, payload.items, current_user)
 
 
-@router.delete("/{order_id}", response_model=schemas.PurchaseOrderOut)
+@router.post("/{order_id}/cancel", response_model=schemas.PurchaseOrderOut)
 def cancel_order(
     order_id: int,
     current_user: Annotated[models.User, Depends(require_role("supervisor"))],
     db: Session = Depends(get_db)
 ):
-    """Cancela una orden de compra."""
+    """Cancela una orden (si no ha sido recibida)."""
     return PurchaseOrderService.cancel_order(db, order_id, current_user)
+
+
+@router.patch("/{order_id}/status", response_model=schemas.PurchaseOrderOut)
+def update_order_status(
+    order_id: int,
+    payload: schemas.PurchaseOrderStatusUpdate,
+    current_user: Annotated[models.User, Depends(require_role("admin"))],
+    db: Session = Depends(get_db)
+):
+    """Actualización manual de estado (Solo Admin)."""
+    return PurchaseOrderService.update_status(db, order_id, payload.status, current_user)

@@ -8,7 +8,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer,
-    String, Text, func,
+    String, Text, func, Index
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -330,6 +330,9 @@ class User(Base, TenantMixin):
 
 class Product(Base, TenantMixin, SoftDeleteMixin):
     __tablename__ = "products"
+    __table_args__ = (
+        Index('idx_product_tenant_code', 'organization_id', 'code'),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
@@ -485,6 +488,9 @@ class CreditLedger(Base, TenantMixin):
 
 class Sale(Base, TenantMixin, SoftDeleteMixin):
     __tablename__ = "sales"
+    __table_args__ = (
+        Index('idx_sale_tenant_date', 'branch_id', 'date'),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)

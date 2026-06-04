@@ -2,7 +2,7 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import schemas, models
 from app.database import get_db
@@ -31,9 +31,16 @@ def get_sales_report(
     if current_user.role in ["cashier", "mechanic"]:
         raise HTTPException(status_code=403, detail="No tiene permiso para ver reportes")
 
-    query = db.query(models.Sale).filter(
-        models.Sale.date >= date_from,
-        models.Sale.date <= date_to
+    query = (
+        db.query(models.Sale)
+        .options(
+            joinedload(models.Sale.items)
+            .joinedload(models.SaleItem.product)
+        )
+        .filter(
+            models.Sale.date >= date_from,
+            models.Sale.date <= date_to
+        )
     )
     
     if not has_role_access(current_user.role, "admin"):
@@ -51,13 +58,12 @@ def get_sales_report(
     
     for sale in sales:
         for item in sale.items:
-            # Asegurar que consultamos productos de la misma sucursal si no somos admin
-            p_query = db.query(models.Product).filter(models.Product.id == item.product_id)
-            if not has_role_access(current_user.role, "admin"):
-                p_query = p_query.filter(models.Product.branch_id == current_user.branch_id)
-            
-            product = p_query.first()
+            product = item.product
             if product:
+                # Si no es admin, validar que el producto sea de su sucursal (seguridad extra)
+                if not has_role_access(current_user.role, "admin") and product.branch_id != current_user.branch_id:
+                    continue
+                    
                 cost = product.cost_price * item.quantity
                 revenue = item.unit_price * item.quantity
                 profit = revenue - cost

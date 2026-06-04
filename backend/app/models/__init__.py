@@ -384,6 +384,30 @@ class InventoryMovement(Base, TenantMixin):
     user: Mapped["User"] = relationship()
 
 
+class FinancialAuditLog(Base, TenantMixin):
+    __tablename__ = "financial_audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
+    
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    resource: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    organization: Mapped[Optional["Organization"]] = relationship()
+    user: Mapped["User"] = relationship()
+    branch: Mapped["Branch"] = relationship()
+
+
 # ─── Combo ────────────────────────────────────────────────────────────────────
 
 class Combo(Base, TenantMixin):
@@ -459,13 +483,17 @@ class CreditLedger(Base, TenantMixin):
 
 # ─── Sale ─────────────────────────────────────────────────────────────────────
 
-class Sale(Base, TenantMixin):
+class Sale(Base, TenantMixin, SoftDeleteMixin):
     __tablename__ = "sales"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False, index=True)
     offline_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True)
     client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id"), nullable=True)
+    
+    # Trazabilidad de cajero
+    cashier_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    
     date: Mapped[date] = mapped_column(Date, nullable=False)
     subtotal: Mapped[float] = mapped_column(Float, nullable=False)
     discount_pct: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
@@ -476,6 +504,7 @@ class Sale(Base, TenantMixin):
     organization: Mapped[Optional["Organization"]] = relationship(back_populates="sales")
     branch: Mapped["Branch"] = relationship(back_populates="sales")
     client: Mapped[Optional["Client"]] = relationship(back_populates="sales")
+    cashier: Mapped[Optional["User"]] = relationship()
     items: Mapped[list["SaleItem"]] = relationship(back_populates="sale", cascade="all, delete-orphan")
 
 

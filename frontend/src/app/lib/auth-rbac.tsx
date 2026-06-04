@@ -6,6 +6,7 @@ import { getAccessToken } from "../api/client";
 // --- 1. Definiciones de Tipos ---
 
 export type UserRole = 
+  | "owner"
   | "superadmin" 
   | "admin" 
   | "supervisor" 
@@ -61,6 +62,15 @@ export type FeatureFlag =
 // --- 2. Matriz de Permisos (Atomic & Compound Logic) ---
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  owner: [
+    "inventory:view", "inventory:viewCosts", "inventory:edit", "inventory:delete", "inventory:adjustStock",
+    "sales:view", "sales:create", "sales:void", "sales:applyDiscount", "sales:manageCombos",
+    "reports:view", "reports:export", "reports:financial",
+    "orders:view", "orders:create", "orders:edit", "orders:approve", "orders:receive", "orders:viewCosts", "orders:cancel",
+    "workshop:view", "workshop:edit", "workshop:createOrder", "workshop:updateStatus", "workshop:assignMechanic",
+    "users:view", "users:manage", "users:manageSuperadmin",
+    "settings:view", "settings:edit", "system:backups", "system:logs"
+  ],
   superadmin: [
     "inventory:view", "inventory:viewCosts", "inventory:edit", "inventory:delete", "inventory:adjustStock",
     "sales:view", "sales:create", "sales:void", "sales:applyDiscount", "sales:manageCombos",
@@ -163,7 +173,7 @@ export function useAuth() {
 
   // Branch-aware logic
   const canAccessBranch = (targetBranchId: number): boolean => {
-    if (state.role === "superadmin" || state.role === "admin") return true;
+    if (state.role === "owner" || state.role === "superadmin" || state.role === "admin") return true;
     return state.branch_id === targetBranchId;
   };
 
@@ -187,7 +197,7 @@ export function useAuth() {
     canAccessBranch,
     canViewFinancialData,
     logout,
-    debug: process.env.NODE_ENV === "development" ? {
+    debug: import.meta.env.DEV ? {
       ...state,
       missingPermissions: (required: Permission[]) => required.filter(p => !state.permissions.includes(p))
     } : null
@@ -251,8 +261,15 @@ export function ProtectedRoute({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiredRole && role !== requiredRole && role !== "superadmin") {
-    return <>{fallback}</>;
+  if (requiredRole) {
+    const hasRequiredRole =
+      requiredRole === "owner"
+        ? role === "owner"
+        : role === requiredRole || role === "superadmin" || role === "owner";
+
+    if (!hasRequiredRole) {
+      return <>{fallback}</>;
+    }
   }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {

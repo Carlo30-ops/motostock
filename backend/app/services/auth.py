@@ -23,6 +23,7 @@ ROLE_HIERARCHY: dict[str, int] = {
     "supervisor": 30,
     "admin": 40,
     "superadmin": 50,
+    "owner": 60,
 }
 
 
@@ -44,10 +45,13 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     from app.services.tenant import bypass_tenant_context
     with bypass_tenant_context("Authenticate user by username", "system"):
         user = db.query(User).filter(User.username == username).first()
+    
     if not user:
         return None
+    
     if not verify_password(password, user.hashed_password):
         return None
+    
     return user
 
 
@@ -93,7 +97,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     
     # Automated Multi-tenant Context Injection
     # This token remains active for the duration of the request/thread
-    set_current_tenant_id(user.organization_id)
+    if user.role == "owner":
+        # Global auditor bypasses tenant isolation to see all organizations
+        set_current_tenant_id(None)
+        from app.services.tenant import _bypass_tenant_ctx
+        _bypass_tenant_ctx.set(True)
+    else:
+        set_current_tenant_id(user.organization_id)
+    
+    # Sync with DB session if needed (for listeners that check session.info)
+    if db is not None and "tenant_id" not in db.info:
+        db.info["tenant_id"] = None if user.role == "owner" else user.organization_id
+        if user.role == "owner":
+            db.info["bypass"] = True
     
     return user
 
@@ -139,6 +155,17 @@ require_superadmin = require_role("superadmin")
 require_cashier = require_role("cashier")
 require_minimum_role = require_role
 require_supervisor = require_role("supervisor")
+
+def owner_required(current_user: User = Depends(get_current_active_user)) -> User:
+    """
+    Exige rol OWNER. Si no lo tiene, devuelve 404 para ocultar la existencia del recurso.
+    """
+    if current_user.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not Found"
+        )
+    return current_user
 
 def get_current_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
     """Legacy helper, prefer use require_admin"""

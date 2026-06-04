@@ -13,7 +13,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-motostock} -d $${POSTGRES_DB:-motostock}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-motostock} -d ${POSTGRES_DB:-motostock}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,13 +26,13 @@ services:
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_pass}
-    command: redis-server --appendonly yes --requirepass $${REDIS_PASSWORD:-redis_pass}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_pass}
     ports:
       - "6379:6379"
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD:-redis_pass}\" ping | grep -q PONG"]
+      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-redis_pass}\" ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -57,6 +57,9 @@ services:
       DATABASE_PORT: 5432
       DATABASE_USER: ${POSTGRES_USER:-motostock}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_pass}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_pass}
       SECRET_KEY: ${SECRET_KEY}
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
@@ -77,7 +80,7 @@ services:
       - ./logs:/app/logs
       - ./uploads:/app/uploads
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/live"]
       interval: 30s
       timeout: 10s
       retries: 5

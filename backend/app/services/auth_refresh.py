@@ -35,72 +35,79 @@ class RefreshTokenService:
     @staticmethod
     def create_refresh_token(user_id: int, db: Session) -> str:
         """Crea un refresh token de larga duración"""
-        # Eliminar refresh tokens existentes para este usuario
-        RefreshTokenService.revoke_user_refresh_tokens(user_id, db)
-        
-        # Generar refresh token único
-        refresh_token = secrets.token_urlsafe(32)
-        
-        # Guardar en base de datos
-        db_refresh_token = RefreshToken(
-            token=refresh_token,
-            user_id=user_id,
-            expires_at=datetime.now(timezone.utc) + timedelta(days=30), # 30 días
-            created_at=datetime.now(timezone.utc)
-        )
-        
-        db.add(db_refresh_token)
-        db.commit()
-        db.refresh(db_refresh_token)
-        
-        return refresh_token
+        from app.services.tenant import bypass_tenant_context
+        with bypass_tenant_context("Create refresh token", "system"):
+            # Eliminar refresh tokens existentes para este usuario (sin commit intermedio)
+            RefreshTokenService.revoke_user_refresh_tokens(user_id, db, commit=False)
+            
+            # Generar refresh token único
+            refresh_token = secrets.token_urlsafe(32)
+            
+            # Guardar en base de datos
+            db_refresh_token = RefreshToken(
+                token=refresh_token,
+                user_id=user_id,
+                expires_at=datetime.now(timezone.utc) + timedelta(days=30), # 30 días
+                created_at=datetime.now(timezone.utc)
+            )
+            
+            db.add(db_refresh_token)
+            db.commit()
+            db.refresh(db_refresh_token)
+            
+            return refresh_token
     
     @staticmethod
     def verify_refresh_token(token: str, db: Session) -> Optional[User]:
         """Verifica un refresh token y retorna el usuario"""
-        # Buscar token en base de datos
-        db_token = db.query(RefreshToken).filter(
-            RefreshToken.token == token,
-            RefreshToken.is_active == True,
-            RefreshToken.expires_at > datetime.now(timezone.utc)
-        ).first()
-        
-        if not db_token:
-            return None
-        
-        # Obtener usuario
         from app.services.tenant import bypass_tenant_context
-        with bypass_tenant_context("Resolve user from refresh token", "system"):
+        with bypass_tenant_context("Verify refresh token", "system"):
+            # Buscar token en base de datos
+            db_token = db.query(RefreshToken).filter(
+                RefreshToken.token == token,
+                RefreshToken.is_active == True,
+                RefreshToken.expires_at > datetime.now(timezone.utc)
+            ).first()
+            
+            if not db_token:
+                return None
+            
+            # Obtener usuario
             user = db.query(User).filter(User.id == db_token.user_id, User.is_active == True).first()
-        
-        return user
+            
+            return user
     
     @staticmethod
     def revoke_refresh_token(token: str, db: Session) -> bool:
         """Revoca un refresh token específico"""
-        db_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
-        
-        if db_token:
-            db_token.is_active = False
-            db_token.revoked_at = datetime.now(timezone.utc)
-            db.commit()
-            return True
-        
-        return False
+        from app.services.tenant import bypass_tenant_context
+        with bypass_tenant_context("Revoke refresh token", "system"):
+            db_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
+            
+            if db_token:
+                db_token.is_active = False
+                db_token.revoked_at = datetime.now(timezone.utc)
+                db.commit()
+                return True
+            
+            return False
     
     @staticmethod
-    def revoke_user_refresh_tokens(user_id: int, db: Session) -> int:
+    def revoke_user_refresh_tokens(user_id: int, db: Session, commit: bool = True) -> int:
         """Revoca todos los refresh tokens de un usuario"""
-        count = db.query(RefreshToken).filter(
-            RefreshToken.user_id == user_id,
-            RefreshToken.is_active == True
-        ).update({
-            RefreshToken.is_active: False,
-            RefreshToken.revoked_at: datetime.now(timezone.utc)
-        })
-        
-        db.commit()
-        return count
+        from app.services.tenant import bypass_tenant_context
+        with bypass_tenant_context("Revoke all user refresh tokens", "system"):
+            count = db.query(RefreshToken).filter(
+                RefreshToken.user_id == user_id,
+                RefreshToken.is_active == True
+            ).update({
+                RefreshToken.is_active: False,
+                RefreshToken.revoked_at: datetime.now(timezone.utc)
+            })
+            
+            if commit:
+                db.commit()
+            return count
     
     @staticmethod
     def refresh_access_token(refresh_token: str, db: Session) -> Optional[Dict[str, Any]]:
@@ -152,12 +159,14 @@ class RefreshTokenService:
     @staticmethod
     def cleanup_expired_tokens(db: Session) -> int:
         """Limpia tokens expirados (para mantenimiento)"""
-        expired_count = db.query(RefreshToken).filter(
-            RefreshToken.expires_at < datetime.now(timezone.utc)
-        ).delete()
-        
-        db.commit()
-        return expired_count
+        from app.services.tenant import bypass_tenant_context
+        with bypass_tenant_context("Cleanup expired tokens", "system"):
+            expired_count = db.query(RefreshToken).filter(
+                RefreshToken.expires_at < datetime.now(timezone.utc)
+            ).delete()
+            
+            db.commit()
+            return expired_count
 
 
 # Funciones de ayuda para endpoints de autenticación
@@ -224,7 +233,9 @@ def get_current_user_from_token(token: str = Depends(oauth2_scheme), db: Session
 # Middleware para actualizar last_used_at de refresh tokens
 def update_refresh_token_usage(token: str, db: Session):
     """Actualiza la fecha de último uso del refresh token"""
-    db_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
-    if db_token:
-        db_token.last_used_at = datetime.now(timezone.utc)
-        db.commit()
+    from app.services.tenant import bypass_tenant_context
+    with bypass_tenant_context("Update refresh token usage", "system"):
+        db_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
+        if db_token:
+            db_token.last_used_at = datetime.now(timezone.utc)
+            db.commit()

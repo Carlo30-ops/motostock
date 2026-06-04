@@ -16,8 +16,9 @@ import { toast } from "sonner";
 import axios from "axios";
 
 function Spinner() {
+  const { t } = useLanguage();
   return (
-    <div className="flex justify-center items-center py-16" role="status" aria-label="Cargando">
+    <div className="flex justify-center items-center py-16" role="status" aria-label={t("common.loading")}>
       <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
     </div>
   );
@@ -32,7 +33,7 @@ function apiErrorMessage(error: unknown): string {
     return error.message;
   }
   if (error instanceof Error) return error.message;
-  return "Error desconocido";
+  return "Error";
 }
 
 export function Clients() {
@@ -65,7 +66,7 @@ export function Clients() {
         { id: editingClient.id, data: formData },
         {
           onSuccess: () => {
-            toast.success("Cliente actualizado");
+            toast.success(t("clients.updated"));
             setShowModal(false);
             setEditingClient(null);
             resetForm();
@@ -76,7 +77,7 @@ export function Clients() {
     } else {
       createClient.mutate(formData, {
         onSuccess: () => {
-          toast.success("Cliente creado");
+          toast.success(t("clients.created"));
           setShowModal(false);
           resetForm();
         },
@@ -119,12 +120,12 @@ export function Clients() {
     const remainingKm = nextServiceKm - client.currentKm;
 
     if (remainingKm <= 0) {
-      return { variant: "destructive" as const, label: "Vencido" };
+      return { variant: "destructive" as const, label: t("oil.overdue") };
     }
     if (remainingKm <= 500) {
-      return { variant: "warning" as const, label: "Pronto" };
+      return { variant: "warning" as const, label: t("oil.dueSoon") };
     }
-    return { variant: "success" as const, label: "OK" };
+    return { variant: "success" as const, label: t("oil.ok") };
   };
 
   const getDaysUntilOilChange = (client: Client): number => {
@@ -173,7 +174,7 @@ export function Clients() {
           size="sm"
         >
           <Plus className="w-4 h-4" />
-          Nuevo cliente
+          {t("clients.newClient")}
         </Button>
       </div>
 
@@ -195,7 +196,7 @@ export function Clients() {
               <CardContent>
                 <div className="space-y-3">
                   {dueThisWeek.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">Ningún cliente esta semana</p>
+                    <p className="text-muted-foreground text-center py-4">{t("clients.noDueThisWeek")}</p>
                   ) : (
                     dueThisWeek.map((client) => (
                       <div key={client.id} className="p-3 border border-border rounded-lg">
@@ -205,7 +206,7 @@ export function Clients() {
                             <p className="text-sm text-muted-foreground">{client.motorcycleModel}</p>
                             <p className="text-sm text-muted-foreground mt-1">{client.phone}</p>
                           </div>
-                          <Badge variant="warning">{getDaysUntilOilChange(client)} días</Badge>
+                          <Badge variant="warning">{getDaysUntilOilChange(client)} {t("clients.days")}</Badge>
                         </div>
                       </div>
                     ))
@@ -227,7 +228,7 @@ export function Clients() {
               <CardContent>
                 <div className="space-y-3">
                   {dueNextWeek.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">Ningún cliente la próxima semana</p>
+                    <p className="text-muted-foreground text-center py-4">{t("clients.noDueNextWeek")}</p>
                   ) : (
                     dueNextWeek.map((client) => (
                       <div key={client.id} className="p-3 border border-border rounded-lg">
@@ -237,7 +238,7 @@ export function Clients() {
                             <p className="text-sm text-muted-foreground">{client.motorcycleModel}</p>
                             <p className="text-sm text-muted-foreground mt-1">{client.phone}</p>
                           </div>
-                          <Badge variant="secondary">{getDaysUntilOilChange(client)} días</Badge>
+                          <Badge variant="secondary">{getDaysUntilOilChange(client)} {t("clients.days")}</Badge>
                         </div>
                       </div>
                     ))
@@ -249,21 +250,21 @@ export function Clients() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Todos los clientes</CardTitle>
+              <CardTitle>{t("clients.allClients")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-3 px-2">Nombre</th>
-                      <th className="text-left py-3 px-2">Teléfono</th>
-                      <th className="text-left py-3 px-2">Moto</th>
-                      <th className="text-left py-3 px-2">Último servicio</th>
-                      <th className="text-right py-3 px-2">KM actual</th>
-                      <th className="text-right py-3 px-2">Cupo</th>
-                      <th className="text-center py-3 px-2">Aceite</th>
-                      <th className="text-right py-3 px-2">Acciones</th>
+                      <th className="text-left py-3 px-2">{t("clients.name")}</th>
+                      <th className="text-left py-3 px-2">{t("clients.phone")}</th>
+                      <th className="text-left py-3 px-2">{t("clients.motorcycle")}</th>
+                      <th className="text-left py-3 px-2">{t("clients.lastService")}</th>
+                      <th className="text-right py-3 px-2">{t("clients.currentKm")}</th>
+                      <th className="text-right py-3 px-2">{t("nav.credit")}</th>
+                      <th className="text-center py-3 px-2">{t("clients.oilChangeStatus")}</th>
+                      <th className="text-right py-3 px-2">{t("clients.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -316,13 +317,13 @@ export function Clients() {
       <Modal
         open={showModal}
         onOpenChange={setShowModal}
-        title={editingClient ? "Editar cliente" : "Nuevo cliente"}
+        title={editingClient ? t("clients.edit") : t("clients.newClient")}
         className="max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block mb-2">Nombre</label>
+              <label className="block mb-2">{t("clients.name")}</label>
               <Input
                 required
                 value={formData.name}
@@ -330,7 +331,7 @@ export function Clients() {
               />
             </div>
             <div>
-              <label className="block mb-2">Teléfono</label>
+              <label className="block mb-2">{t("clients.phone")}</label>
               <Input
                 required
                 value={formData.phone}
@@ -340,7 +341,7 @@ export function Clients() {
           </div>
 
           <div>
-            <label className="block mb-2">Modelo de moto</label>
+            <label className="block mb-2">{t("clients.model")}</label>
             <Input
               required
               value={formData.motorcycleModel}
@@ -350,7 +351,7 @@ export function Clients() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block mb-2">Último servicio</label>
+              <label className="block mb-2">{t("clients.lastServiceDate")}</label>
               <Input
                 type="date"
                 value={formData.lastServiceDate}
@@ -358,7 +359,7 @@ export function Clients() {
               />
             </div>
             <div>
-              <label className="block mb-2">Kilometraje actual</label>
+              <label className="block mb-2">{t("clients.currentKilometers")}</label>
               <Input
                 type="number"
                 required
@@ -370,7 +371,7 @@ export function Clients() {
           </div>
 
           <div>
-            <label className="block mb-2">Intervalo cambio aceite (km)</label>
+            <label className="block mb-2">{t("clients.oilChangeInterval")}</label>
             <Input
               type="number"
               required
@@ -385,7 +386,7 @@ export function Clients() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block mb-2">Cupo máximo</label>
+              <label className="block mb-2">{t("credit.addTitle")}</label>
               <Input
                 type="number"
                 required
@@ -396,7 +397,7 @@ export function Clients() {
               />
             </div>
             <div>
-              <label className="block mb-2">Cupo disponible</label>
+              <label className="block mb-2">{t("credit.currentBalance")}</label>
               <Input
                 type="number"
                 required
@@ -411,7 +412,7 @@ export function Clients() {
 
           <div className="flex gap-2 pt-4">
             <Button type="submit" className="flex-1" disabled={isSaving}>
-              {isSaving ? "Guardando…" : editingClient ? "Actualizar" : "Crear"}
+              {isSaving ? t("common.loading") : editingClient ? t("btn.updateClient") : t("btn.addClient")}
             </Button>
             <Button
               type="button"
@@ -422,7 +423,7 @@ export function Clients() {
                 setEditingClient(null);
               }}
             >
-              Cancelar
+              {t("btn.cancel")}
             </Button>
           </div>
         </form>

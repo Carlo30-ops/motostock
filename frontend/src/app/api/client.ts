@@ -44,7 +44,7 @@ export const loginWithCredentials = async (username: string, password: string) =
   formData.append("username", username);
   formData.append("password", password);
   
-  const res = await apiClient.post("/auth/token-with-refresh", formData);
+  const res = await apiClient.post("/auth/token", formData);
   const { access_token, refresh_token } = res.data;
   localStorage.setItem("access_token", access_token);
   localStorage.setItem("refresh_token", refresh_token);
@@ -384,4 +384,11 @@ export const api = {
         "/2fa/regenerate-backup-codes"
       )
       .then((res) => res.data),
+
+  // Owner
+  getOwnerDashboard: () => apiClient.get("/owner/dashboard").then((res) => res.data),
+  getFinancialAudit: (params: any) => apiClient.get("/owner/financial-audit", { params }).then((res) => res.data),
+  getOwnerSalesHistory: (params: any) => apiClient.get("/owner/sales-history", { params }).then((res) => res.data),
+  getOwnerInventoryMovements: () => apiClient.get("/owner/inventory-movements").then((res) => res.data),
+  getProfitability: (params: any) => apiClient.get("/owner/profitability", { params }).then((res) => res.data),
 };

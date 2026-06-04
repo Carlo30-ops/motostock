@@ -124,4 +124,5 @@ export {
   PaginationPrevious,
   PaginationNext,
   PaginationEllipsis,
+  buttonVariants,
 };

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SENTRY_DSN: str = ""
+    ENCRYPTION_KEY: str = ""
 
     DIAN_ENV: str = "habilitacion"
     DIAN_PROVIDER: str = "siigo"
@@ -56,6 +57,7 @@ class Settings(BaseSettings):
     # Logging configuration
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
+    OWNER_SECRET_PATH: str = "x7k2m9p4"
 
 
 try:

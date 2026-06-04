@@ -21,6 +21,8 @@ const translations: Translations = {
   "nav.workshop": { en: "Workshop", es: "Taller" },
   "nav.suppliers": { en: "Suppliers", es: "Proveedores" },
   "nav.profile": { en: "Profile", es: "Perfil" },
+  "nav.users": { en: "Users", es: "Usuarios" },
+  "nav.dianConfig": { en: "DIAN Config", es: "Config. DIAN" },
 
   // Login
   "login.title": { en: "MotoStock", es: "MotoStock" },
@@ -38,6 +40,13 @@ const translations: Translations = {
 
   // Offline
   "offline.pending": { en: "pending sync", es: "pendientes de sincronizar" },
+  "offline.online": { en: "Online", es: "Online" },
+  "offline.offline": { en: "Offline", es: "Offline" },
+  "offline.syncing": { en: "Syncing...", es: "Sincronizando..." },
+  "offline.syncNow": { en: "Sync now", es: "Sincronizar ahora" },
+  "offline.viewQueue": { en: "View queue", es: "Ver cola" },
+  "offline.clearQueue": { en: "Clear queue", es: "Limpiar cola" },
+  "offline.noPending": { en: "No pending operations.", es: "Sin operaciones pendientes." },
 
   // Dashboard
   "dashboard.title": { en: "Dashboard", es: "Panel de Control" },
@@ -73,6 +82,7 @@ const translations: Translations = {
   "btn.deductCredit": { en: "Deduct Credit", es: "Deducir Crédito" },
   "btn.markSent": { en: "Mark as Sent", es: "Marcar como Enviado" },
   "btn.markReceived": { en: "Mark as Received", es: "Marcar como Recibido" },
+  "btn.logout": { en: "Logout", es: "Salir" },
 
   // Periods
   "period.daily": { en: "Daily", es: "Diario" },
@@ -167,6 +177,7 @@ const translations: Translations = {
   "clients.oilChangeStatus": { en: "Oil Change Status", es: "Estado Cambio de Aceite" },
   "clients.actions": { en: "Actions", es: "Acciones" },
   "clients.addNew": { en: "Add New Client", es: "Añadir Nuevo Cliente" },
+  "clients.newClient": { en: "New Client", es: "Nuevo Cliente" },
   "clients.edit": { en: "Edit Client", es: "Editar Cliente" },
   "clients.model": { en: "Motorcycle Model", es: "Modelo de Motocicleta" },
   "clients.lastServiceDate": { en: "Last Service Date", es: "Fecha Último Servicio" },
@@ -174,18 +185,23 @@ const translations: Translations = {
   "clients.oilChangeInterval": { en: "Oil Change Interval (km)", es: "Intervalo Cambio de Aceite (km)" },
   "clients.days": { en: "days", es: "días" },
   "clients.next": { en: "Next", es: "Próximo" },
+  "clients.updated": { en: "Client updated", es: "Cliente actualizado" },
+  "clients.created": { en: "Client created", es: "Cliente creado" },
 
   // Oil Change Status
   "oil.overdue": { en: "Overdue", es: "Atrasado" },
   "oil.dueSoon": { en: "Due Soon", es: "Próximo" },
   "oil.good": { en: "Good", es: "Bien" },
+  "oil.ok": { en: "OK", es: "OK" },
 
   // Reports
   "reports.title": { en: "Reports & Analytics", es: "Reportes y Análisis" },
   "reports.subtitle": { en: "View sales and inventory insights", es: "Ver información de ventas e inventario" },
   "reports.dateRange": { en: "Date Range", es: "Rango de Fechas" },
+  "reports.dateRangeSales": { en: "Date Range (Sales)", es: "Rango de Fechas (Ventas)" },
   "reports.from": { en: "From", es: "Desde" },
   "reports.to": { en: "To", es: "Hasta" },
+  "reports.update": { en: "Update", es: "Actualizar" },
   "reports.sales": { en: "Sales Report", es: "Reporte de Ventas" },
   "reports.inventory": { en: "Inventory Report", es: "Reporte de Inventario" },
   "reports.totalSold": { en: "Total Sold", es: "Total Vendido" },
@@ -198,6 +214,7 @@ const translations: Translations = {
   "reports.totalProducts": { en: "Total Products", es: "Total de Productos" },
   "reports.totalUnits": { en: "Total Units", es: "Unidades Totales" },
   "reports.slowMovers": { en: "Slow Moving Items", es: "Artículos de Movimiento Lento" },
+  "reports.lowRotation": { en: "Low Rotation (Sample)", es: "Baja Rotación (Muestra)" },
   "reports.exportPDF": { en: "Export PDF", es: "Exportar PDF" },
   "reports.exportCSV": { en: "Export CSV", es: "Exportar CSV" },
   "reports.margin": { en: "margin", es: "margen" },
@@ -205,9 +222,14 @@ const translations: Translations = {
   "reports.totalSales": { en: "Total sales", es: "Ventas totales" },
   "reports.unitsSold": { en: "units sold", es: "unidades vendidas" },
   "reports.revenue": { en: "Revenue", es: "Ingresos" },
+  "reports.costs": { en: "Costs", es: "Costos" },
+  "reports.profit": { en: "Profit", es: "Utilidad" },
   "reports.noSales": { en: "No sales in selected period", es: "No hay ventas en el período seleccionado" },
   "reports.movingWell": { en: "All products moving well", es: "Todos los productos se mueven bien" },
   "reports.lowSales": { en: "Low sales", es: "Ventas bajas" },
+  "reports.detailByProduct": { en: "Detail by Product", es: "Detalle por Producto" },
+  "reports.exportSuccess": { en: "Report exported successfully", es: "Reporte exportado exitosamente" },
+  "reports.noDataExport": { en: "No data to export", es: "No hay datos para exportar" },
 
   // Purchase Orders
   "orders.title": { en: "Purchase Orders", es: "Órdenes de Compra" },
@@ -219,14 +241,24 @@ const translations: Translations = {
   "orders.inTransit": { en: "In transit", es: "En tránsito" },
   "orders.completed": { en: "Completed", es: "Completado" },
   "orders.all": { en: "All Orders", es: "Todos los Pedidos" },
+  "orders.allOrders": { en: "All Orders", es: "Todas las Órdenes" },
   "orders.create": { en: "Create Purchase Order", es: "Crear Orden de Compra" },
-  "orders.supplier": { en: "Supplier Name", es: "Nombre del Proveedor" },
+  "orders.createOrder": { en: "Create Order", es: "Crear Orden" },
+  "orders.newOrder": { en: "New Order", es: "Nueva Orden" },
+  "orders.supplier": { en: "Supplier", es: "Proveedor" },
   "orders.addProducts": { en: "Add Products", es: "Añadir Productos" },
   "orders.selectProduct": { en: "Select a product...", es: "Seleccionar un producto..." },
   "orders.noProducts": { en: "No products added", es: "No se añadieron productos" },
   "orders.orderTotal": { en: "Order Total", es: "Total del Pedido" },
   "orders.noOrders": { en: "No purchase orders yet", es: "No hay órdenes de compra aún" },
-  "orders.remove": { en: "Remove", es: "Eliminar" },
+  "orders.noOrdersFound": { en: "No purchase orders found", es: "Sin órdenes de compra" },
+  "orders.remove": { en: "Remove", es: "Quitar" },
+  "orders.total": { en: "Total", es: "Total" },
+  "orders.markSent": { en: "Mark as Sent", es: "Marcar como Enviado" },
+  "orders.markReceived": { en: "Mark as Received", es: "Marcar como Recibido" },
+  "orders.sentSuccess": { en: "Marked as sent", es: "Marcada como enviada" },
+  "orders.receivedSuccess": { en: "Received — stock updated", es: "Recibida — stock actualizado" },
+  "orders.creating": { en: "Creating...", es: "Creando..." },
 
   // Common
   "common.code": { en: "Code", es: "Código" },
@@ -236,6 +268,8 @@ const translations: Translations = {
   "common.date": { en: "Date", es: "Fecha" },
   "common.quantity": { en: "Qty", es: "Cant" },
   "common.units": { en: "units", es: "unidades" },
+  "common.loading": { en: "Loading...", es: "Cargando..." },
+
 };
 
 interface LanguageContextType {

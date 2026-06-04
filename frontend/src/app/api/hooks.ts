@@ -341,3 +341,44 @@ export function useRegenerateBackupCodes() {
     mutationFn: api.regenerateBackupCodes,
   });
 }
+
+// Owner Hooks
+export function useOwnerDashboard() {
+  return useQuery({
+    queryKey: ["ownerDashboard"],
+    queryFn: api.getOwnerDashboard,
+    staleTime: 0, // No cache as requested
+  });
+}
+
+export function useFinancialAudit(params: any) {
+  return useQuery({
+    queryKey: ["financialAudit", params],
+    queryFn: () => api.getFinancialAudit(params),
+    staleTime: 0,
+  });
+}
+
+export function useOwnerSalesHistory(params: any) {
+  return useQuery({
+    queryKey: ["ownerSalesHistory", params],
+    queryFn: () => api.getOwnerSalesHistory(params),
+    staleTime: 0,
+  });
+}
+
+export function useOwnerInventoryMovements() {
+  return useQuery({
+    queryKey: ["ownerInventoryMovements"],
+    queryFn: api.getOwnerInventoryMovements,
+    staleTime: 0,
+  });
+}
+
+export function useProfitability(params: any) {
+  return useQuery({
+    queryKey: ["profitability", params],
+    queryFn: () => api.getProfitability(params),
+    staleTime: 0,
+  });
+}

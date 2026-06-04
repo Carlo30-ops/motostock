@@ -17,7 +17,7 @@ def test_login_returns_token(client: TestClient):
 
 def test_login_with_refresh_token(client: TestClient):
     response = client.post(
-        "/api/auth/token-with-refresh",
+        "/api/auth/token",
         data={"username": "admin", "password": "admin123"},
     )
     assert response.status_code == 200
@@ -28,7 +28,7 @@ def test_login_with_refresh_token(client: TestClient):
 
 def test_refresh_token_rotation(client: TestClient):
     login = client.post(
-        "/api/auth/token-with-refresh",
+        "/api/auth/token",
         data={"username": "admin", "password": "admin123"},
     )
     assert login.status_code == 200

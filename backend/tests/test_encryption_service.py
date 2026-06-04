@@ -84,21 +84,23 @@ class TestEncryptionService:
         assert encrypted_data["public_field"] == "public_value"
         assert encrypted_data["normal_field"] == "normal_value"
     
-    @pytest.mark.skip(reason="TODO: Requiere PostgreSQL real y exportar funciones en encryption.py")
     def test_decrypt_sensitive_fields(self):
         """Test desencriptación de campos específicos en diccionario"""
         data = {
             "public_field": "public_value",
-            "secret_field": "encrypted_value",
-            "secret_field_encrypted": True,
+            "secret_field": "secret_value",
             "normal_field": "normal_value"
         }
         sensitive_fields = ["secret_field"]
         
-        decrypted_data = self.service.decrypt_sensitive_fields(data, sensitive_fields)
+        # Primero encriptar para tener un valor válido
+        encrypted_data = self.service.encrypt_sensitive_fields(data, sensitive_fields)
+        
+        # Luego desencriptar
+        decrypted_data = self.service.decrypt_sensitive_fields(encrypted_data, sensitive_fields)
         
         # Verificar que el campo sensible fue desencriptado
-        assert decrypted_data["secret_field"] != "encrypted_value"
+        assert decrypted_data["secret_field"] == "secret_value"
         assert "secret_field_encrypted" not in decrypted_data
         
         # Verificar que los campos no sensibles no cambiaron
@@ -158,8 +160,8 @@ class TestEncryptionService:
         
         # Las claves deben ser strings base64 válidos
         import base64
-        base64.b64decode(key1)
-        base64.b64decode(key2)
+        base64.urlsafe_b64decode(key1)
+        base64.urlsafe_b64decode(key2)
     
     def test_setup_encryption_env(self):
         """Test configuración de variables de entorno"""
@@ -270,20 +272,20 @@ class TestSecureContext:
 class TestMigrationUtilities:
     """Tests para utilidades de migración de datos"""
     
-    @pytest.mark.skip(reason="TODO: Requiere PostgreSQL real y exportar funciones en encryption.py")
     def test_migrate_to_encrypted_data_dry_run(self):
         """Test migración en modo dry run"""
         from app.services.encryption import migrate_to_encrypted_data
         
         result = migrate_to_encrypted_data(
-            table_name="test_table",
-            sensitive_columns=["secret_column"],
+            table_name="users", # Use a real table name
+            sensitive_columns=["pin_code"],
             dry_run=True
         )
         
-        assert result["table"] == "test_table"
-        assert result["columns"] == ["secret_column"]
+        assert result["table"] == "users"
+        assert result["columns"] == ["pin_code"]
         assert result["dry_run"] is True
+        assert "message" in result
         assert "DRY RUN" in result["message"]
 
 

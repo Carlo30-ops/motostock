@@ -100,6 +100,7 @@ ROLE_PERMISSIONS: dict[str, Set[Permission]] = {
         Permission.SYSTEM_BACKUPS,
         Permission.SETTINGS_EDIT,
     },
+    "owner": set(Permission),
     "superadmin": set(Permission),
 }
 

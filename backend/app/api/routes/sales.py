@@ -153,6 +153,7 @@ def create_sale(
         branch_id=current_user.branch_id,
         offline_id=sale.offline_id,
         client_id=sale.client_id,
+        cashier_id=current_user.id,
         date=sale.date,
         subtotal=subtotal,
         discount_pct=sale.discount_pct,
@@ -296,3 +297,75 @@ def create_combo(
     )
 
     return db_combo
+
+
+@router.post("/{sale_id}/cancel", response_model=schemas.SaleOut)
+def cancel_sale(
+    sale_id: int,
+    current_user: Annotated[models.User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
+    """
+    Anular/cancelar una venta (Soft Delete).
+    Mechanic: Prohibido.
+    Cashier/Supervisor: Solo su propia sucursal.
+    Admin+: Todas las sucursales.
+    """
+    if current_user.role == "mechanic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Los mecánicos no tienen permiso para cancelar ventas"
+        )
+
+    # Bloqueamos la fila de la venta para evitar race conditions
+    sale = db.query(models.Sale).with_for_update().filter(models.Sale.id == sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+
+    if not has_role_access(current_user.role, "admin") and sale.branch_id != current_user.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permiso para cancelar ventas de otra sucursal"
+        )
+
+    if sale.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="La venta ya ha sido cancelada")
+
+    # 1. Soft-delete the sale
+    sale.delete()
+
+    # 2. Devolver stock de los productos
+    for item in sale.items:
+        product = db.query(models.Product).with_for_update().filter(
+            models.Product.id == item.product_id,
+            models.Product.branch_id == sale.branch_id
+        ).first()
+        if product:
+            product.stock += item.quantity
+
+    # 3. Si fue pago a crédito, revertir saldo y ledger
+    if sale.payment_method == "credit" and sale.client_id:
+        client = db.query(models.Client).with_for_update().filter(models.Client.id == sale.client_id).first()
+        if client:
+            client.credit_balance = round(client.credit_balance + sale.total, 2)
+            # Registrar reversión en el libro de crédito
+            ledger_entry = models.CreditLedger(
+                client_id=client.id,
+                amount=sale.total,
+                description=f"Reversión Venta #{sale.id} (Cancelada)"
+            )
+            db.add(ledger_entry)
+
+    # 4. Registrar acción en auditoría
+    audit_logger.log_action(
+        actor_id=current_user.id,
+        target_id=sale.id,
+        action="cancel_sale",
+        resource="sales",
+        branch_id=current_user.branch_id if not has_role_access(current_user.role, "admin") else sale.branch_id,
+        details={"total": sale.total, "client_id": sale.client_id}
+    )
+
+    db.commit()
+    db.refresh(sale)
+    return sale

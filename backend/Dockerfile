@@ -41,7 +41,7 @@ ENV PATH=/usr/local/bin:$PATH
 
 # Health check para Docker
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8000/health/live || exit 1
+  CMD curl -f http://localhost:8000/api/health/live || exit 1
 
 # Crear usuario no-root para seguridad (lectura de /usr/local para alembic/uvicorn)
 RUN groupadd -r motostock && useradd -r -g motostock motostock \

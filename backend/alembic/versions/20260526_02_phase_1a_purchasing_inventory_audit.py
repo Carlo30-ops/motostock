@@ -20,20 +20,40 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # 1. Create Enums
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE movement_type AS ENUM (
+                'purchase', 'sale', 'adjustment', 'return_supplier', 'transfer'
+            );
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE purchase_order_status AS ENUM (
+                'draft', 'pending_approval', 'approved', 'rejected', 
+                'ordered', 'partially_received', 'received', 'cancelled'
+            );
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
+    
+    # We still need the objects for the table creation
+    movement_type = sa.Enum(
+        'purchase', 'sale', 'adjustment', 'return_supplier', 'transfer', 
+        name='movement_type'
+    )
     purchase_order_status = sa.Enum(
         'draft', 'pending_approval', 'approved', 'rejected', 
         'ordered', 'partially_received', 'received', 'cancelled', 
         name='purchase_order_status'
     )
-    movement_type = sa.Enum(
-        'purchase', 'sale', 'adjustment', 'return_supplier', 'transfer', 
-        name='movement_type'
-    )
-    
-    # Create movement_type enum in DB
-    movement_type.create(op.get_bind(), checkfirst=True)
-    # Create purchase_order_status enum in DB
-    purchase_order_status.create(op.get_bind(), checkfirst=True)
 
     # 2. Create inventory_movements table
     op.create_table(
@@ -42,7 +62,7 @@ def upgrade() -> None:
         sa.Column('product_id', sa.Integer(), nullable=False),
         sa.Column('branch_id', sa.Integer(), nullable=False),
         sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('movement_type', sa.Enum('purchase', 'sale', 'adjustment', 'return_supplier', 'transfer', name='movement_type'), nullable=False),
+        sa.Column('movement_type', postgresql.ENUM('purchase', 'sale', 'adjustment', 'return_supplier', 'transfer', name='movement_type', create_type=False), nullable=False),
         sa.Column('quantity', sa.Integer(), nullable=False),
         sa.Column('previous_stock', sa.Integer(), nullable=False),
         sa.Column('new_stock', sa.Integer(), nullable=False),
@@ -76,6 +96,7 @@ def upgrade() -> None:
     # Map old 'pending' to 'draft' or 'pending_approval'? 
     # Let's map existing 'pending' -> 'ordered' (as it was used before) or 'draft'
     # Actually, old 'pending' meant it was created but not received.
+    op.execute("ALTER TABLE purchase_orders ALTER COLUMN status DROP DEFAULT")
     op.execute("ALTER TABLE purchase_orders ALTER COLUMN status TYPE VARCHAR(255)")
     op.execute("UPDATE purchase_orders SET status = 'ordered' WHERE status = 'pending'")
     op.execute("UPDATE purchase_orders SET status = 'ordered' WHERE status = 'sent'")

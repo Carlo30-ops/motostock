@@ -7,7 +7,7 @@ import { PanelLeftIcon } from "lucide-react";
 
 import { useIsMobile } from "./use-mobile";
 import { cn } from "./utils";
-import { Button } from "./button";
+import { Button, buttonVariants } from "./button";
 import { Input } from "./input";
 import { Separator } from "./separator";
 import {
@@ -723,4 +723,5 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  buttonVariants,
 };

@@ -1,5 +1,6 @@
 # API router central (Fase B: suppliers, workshop, 2FA).
 from fastapi import APIRouter
+from app.config import settings
 
 from app.api.routes import (
     auth,
@@ -18,13 +19,17 @@ from app.api.routes import (
     totp,
     users,
     health,
+    owner,
 )
 
 api_router = APIRouter()
 
 api_router.include_router(health.router, prefix="/health", tags=["system"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
-api_router.include_router(auth_refresh.router, prefix="/auth", tags=["auth-refresh"])
+api_router.include_router(owner.router, prefix="/owner", tags=["owner"])
+# Alias secreto para el dueño
+if hasattr(settings, "OWNER_SECRET_PATH") and settings.OWNER_SECRET_PATH:
+    api_router.include_router(owner.router, prefix=f"/{settings.OWNER_SECRET_PATH}", tags=["owner"])
 api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
 api_router.include_router(sales.router, prefix="/sales", tags=["sales"])
 api_router.include_router(clients.router, prefix="/clients", tags=["clients"])

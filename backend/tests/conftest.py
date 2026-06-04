@@ -29,10 +29,8 @@ from fastapi.testclient import TestClient
 # Desactivar limitador de rate limit para pruebas
 limiter.enabled = False
 
-collect_ignore = [
-    "test_encryption_service.py",
-    "test_refresh_tokens.py",
-]
+# Permitir la colección de todos los tests
+collect_ignore = []
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():

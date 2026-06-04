@@ -6,9 +6,11 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import Dict, Any, Optional
+from datetime import datetime
 import traceback
 
 from app.logging_config import get_logger
+from app.config import settings
 
 logger = get_logger("error_handlers")
 

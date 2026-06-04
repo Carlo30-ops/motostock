@@ -25,6 +25,8 @@ const Suppliers = lazy(() => import("./pages/Suppliers").then(m => ({ default: m
 const Workshop = lazy(() => import("./pages/Workshop").then(m => ({ default: m.Workshop })));
 const AdminUsers = lazy(() => import("./pages/AdminUsers").then(m => ({ default: m.AdminUsers })));
 const Login = lazy(() => import("./pages/Login").then(m => ({ default: m.Login })));
+const OwnerDashboard = lazy(() => import("./pages/OwnerDashboard").then(m => ({ default: m.OwnerDashboard })));
+const NotFound = lazy(() => import("./pages/NotFound").then(m => ({ default: m.NotFound })));
 
 // Purchasing Module
 const PurchaseOrdersPage = lazy(() => import("./modules/purchasing/pages/PurchaseOrdersPage").then(m => ({ default: m.PurchaseOrdersPage })));
@@ -43,18 +45,30 @@ function ProtectedLayout() {
   );
 }
 
+const OWNER_SECRET = import.meta.env.VITE_OWNER_SECRET_PATH || "x7k2m9p4";
+
 export const router = createBrowserRouter([
   { 
     path: "/login", 
-    element: <SuspenseWrapper><Login /></SuspenseWrapper> 
+    element: <SuspenseWrapper><Login /></SuspenseWrapper>,
+    errorElement: <SuspenseWrapper><NotFound /></SuspenseWrapper>
   },
   {
     path: "/",
     Component: ProtectedLayout,
+    errorElement: <SuspenseWrapper><NotFound /></SuspenseWrapper>,
     children: [
       { 
         index: true, 
         element: <SuspenseWrapper><Dashboard /></SuspenseWrapper> 
+      },
+      { 
+        path: "owner", 
+        element: <ProtectedRoute requiredRole="owner" fallback={<SuspenseWrapper><NotFound /></SuspenseWrapper>}><SuspenseWrapper><OwnerDashboard /></SuspenseWrapper></ProtectedRoute> 
+      },
+      { 
+        path: OWNER_SECRET, 
+        element: <ProtectedRoute requiredRole="owner" fallback={<SuspenseWrapper><NotFound /></SuspenseWrapper>}><SuspenseWrapper><OwnerDashboard /></SuspenseWrapper></ProtectedRoute> 
       },
       { 
         path: "inventory", 
@@ -121,6 +135,14 @@ export const router = createBrowserRouter([
         path: "profile", 
         element: <SuspenseWrapper><Profile /></SuspenseWrapper> 
       },
+      {
+        path: "*",
+        element: <SuspenseWrapper><NotFound /></SuspenseWrapper>
+      }
     ],
   },
+  {
+    path: "*",
+    element: <SuspenseWrapper><NotFound /></SuspenseWrapper>
+  }
 ]);

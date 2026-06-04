@@ -80,76 +80,67 @@ export function Reports() {
 
   const exportReport = (type: "sales" | "inventory", fmt: "excel" | "pdf") => {
     if (type === "sales" && !salesReport) {
-      toast.error("No hay datos de ventas para exportar");
+      toast.error(t("reports.noDataExport"));
       return;
     }
     if (type === "inventory" && !inventoryReport) {
-      toast.error("No hay datos de inventario para exportar");
+      toast.error(t("reports.noDataExport"));
       return;
     }
 
     if (type === "sales" && salesReport) {
       const rows = salesReport.rows.map((r: SalesReportRow) => ({
-        Producto: r.product_name,
-        Categoría: r.category,
-        Cantidad: r.quantity_sold,
-        Ingresos: r.revenue,
-        ...(canSeeCosts ? { Costo: r.cost, Utilidad: r.profit } : {}),
+        [t("common.product")]: r.product_name,
+        [t("inventory.category")]: r.category,
+        [t("common.quantity")]: r.quantity_sold,
+        [t("reports.revenue")]: r.revenue,
+        ...(canSeeCosts ? { [t("reports.costs")]: r.cost, [t("reports.profit")]: r.profit } : {}),
       }));
 
       if (fmt === "excel") {
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Ventas");
+        XLSX.utils.book_append_sheet(wb, ws, t("nav.sales"));
         XLSX.writeFile(wb, `reporte-ventas-${dateFrom}-${dateTo}.xlsx`);
       } else {
         const doc = new jsPDF();
-        doc.text(`Reporte de ventas ${dateFrom} — ${dateTo}`, 14, 15);
+        doc.text(`${t("reports.sales")} ${dateFrom} — ${dateTo}`, 14, 15);
         autoTable(doc, {
-          head: [Object.keys(rows[0] ?? { Producto: "" })],
+          head: [Object.keys(rows[0] ?? { [t("common.product")]: "" })],
           body: rows.map((r) => Object.values(r)),
           startY: 22,
         });
         doc.save(`reporte-ventas-${dateFrom}-${dateTo}.pdf`);
       }
-      toast.success("Reporte exportado");
+      toast.success(t("reports.exportSuccess"));
       return;
     }
 
     if (type === "inventory" && inventoryReport) {
       const rows = inventoryReport.rows.map((r: InventoryReportRow) => ({
-        Producto: r.product_name,
-        Categoría: r.category,
-        Marca: r.brand,
-        Stock: r.stock,
-        Estado: r.status,
-        ...(canSeeCosts ? { "Valor stock": r.stock * (inventoryReport.rows.find((x: InventoryReportRow) => x.product_id === r.product_id)?.stock ?? 0) } : {}),
+        [t("common.product")]: r.product_name,
+        [t("inventory.category")]: r.category,
+        [t("inventory.brand")]: r.brand,
+        [t("inventory.stock")]: r.stock,
+        [t("common.status")]: r.status,
       }));
 
       if (fmt === "excel") {
-        const ws = XLSX.utils.json_to_sheet(
-          inventoryReport.rows.map((r: InventoryReportRow) => ({
-            Producto: r.product_name,
-            Categoría: r.category,
-            Marca: r.brand,
-            Stock: r.stock,
-            Estado: r.status,
-          }))
-        );
+        const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+        XLSX.utils.book_append_sheet(wb, ws, t("nav.inventory"));
         XLSX.writeFile(wb, `reporte-inventario-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
       } else {
         const doc = new jsPDF();
-        doc.text("Reporte de inventario", 14, 15);
+        doc.text(t("reports.inventory"), 14, 15);
         autoTable(doc, {
-          head: [["Producto", "Categoría", "Stock", "Estado"]],
-          body: rows.map((r) => [r.Producto, r.Categoría, r.Stock, r.Estado]),
+          head: [[t("common.product"), t("inventory.category"), t("inventory.stock"), t("common.status")]],
+          body: inventoryReport.rows.map((r) => [r.product_name, r.category, r.stock, r.status]),
           startY: 22,
         });
         doc.save(`reporte-inventario-${format(new Date(), "yyyy-MM-dd")}.pdf`);
       }
-      toast.success("Reporte exportado");
+      toast.success(t("reports.exportSuccess"));
     }
   };
 
@@ -166,35 +157,35 @@ export function Reports() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Rango de fechas (ventas)</CardTitle>
+          <CardTitle>{t("reports.dateRangeSales")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4 items-end">
           <div>
-            <label className="block text-sm mb-1">Desde</label>
+            <label className="block text-sm mb-1">{t("reports.from")}</label>
             <Input type="date" value={dateFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateFrom(e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm mb-1">Hasta</label>
+            <label className="block text-sm mb-1">{t("reports.to")}</label>
             <Input type="date" value={dateTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateTo(e.target.value)} />
           </div>
           <Button variant="outline" onClick={() => refetchSales()}>
-            Actualizar
+            {t("reports.update")}
           </Button>
         </CardContent>
       </Card>
 
       {salesError && (
         <p className="text-destructive text-sm">
-          No se pudo cargar el reporte de ventas. Requiere rol supervisor o superior.
+          {t("reports.noSales")}
         </p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          title="Ingresos"
+          title={t("reports.revenue")}
           value={salesLoading ? "…" : formatCurrency(salesReport?.total_revenue ?? 0)}
           icon={DollarSign}
-          subtitle={`${salesReport?.total_transactions ?? 0} transacciones`}
+          subtitle={`${salesReport?.total_transactions ?? 0} ${t("reports.transactions")}`}
           loading={salesLoading}
         />
 
@@ -202,7 +193,7 @@ export function Reports() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>Costos</CardTitle>
+                <CardTitle>{t("reports.costs")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-medium">
@@ -212,7 +203,7 @@ export function Reports() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Utilidad</CardTitle>
+                <CardTitle>{t("reports.profit")}</CardTitle>
                 <TrendingUp className="w-5 h-5 text-success" />
               </CardHeader>
               <CardContent>
@@ -226,7 +217,7 @@ export function Reports() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Ticket promedio</CardTitle>
+            <CardTitle>{t("reports.averageTicket")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-medium">
@@ -239,7 +230,7 @@ export function Reports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Top productos vendidos</CardTitle>
+            <CardTitle>{t("reports.topProducts")}</CardTitle>
             <Can permission="reports:export">
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => exportReport("sales", "excel")}>
@@ -257,7 +248,7 @@ export function Reports() {
                 <Loader2 className="w-6 h-6 animate-spin" />
               </div>
             ) : topProducts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">Sin ventas en el período</p>
+              <p className="text-muted-foreground text-center py-4">{t("reports.noSales")}</p>
             ) : (
               <>
                 <SalesReportChart
@@ -282,7 +273,7 @@ export function Reports() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" /> Inventario
+              <Package className="w-5 h-5" /> {t("nav.inventory")}
             </CardTitle>
             <Can permission="reports:export">
               <div className="flex gap-2">
@@ -301,26 +292,26 @@ export function Reports() {
               <>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Productos</p>
+                    <p className="text-sm text-muted-foreground">{t("inventory.stock")}</p>
                     <p className="text-xl font-medium">{inventoryReport?.total_products ?? 0}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Unidades</p>
+                    <p className="text-sm text-muted-foreground">{t("common.units")}</p>
                     <p className="text-xl font-medium">{inventoryReport?.total_units ?? 0}</p>
                   </div>
                 </div>
                 <Can permission="reports:financial">
                   <p className="text-sm mb-3">
-                    Valor stock: {formatCurrency(inventoryReport?.total_stock_value ?? 0)}
+                    {t("reports.stockValue")}: {formatCurrency(inventoryReport?.total_stock_value ?? 0)}
                   </p>
                 </Can>
-                <p className="text-sm font-medium mb-2">Baja rotación (muestra)</p>
+                <p className="text-sm font-medium mb-2">{t("reports.lowRotation")}</p>
                 {slowMovers.length === 0 ? (
                   <p className="text-muted-foreground text-sm">—</p>
                 ) : (
                   slowMovers.map((r: InventoryReportRow) => (
                     <p key={r.product_id} className="text-sm text-muted-foreground">
-                      {r.product_name} — stock {r.stock}
+                      {r.product_name} — {t("inventory.stock")} {r.stock}
                     </p>
                   ))
                 )}
@@ -333,18 +324,18 @@ export function Reports() {
       {salesReport && salesReport.rows.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Detalle por producto ({formatDate(dateFrom)} — {formatDate(dateTo)})</CardTitle>
+            <CardTitle>{t("reports.detailByProduct")} ({formatDate(dateFrom)} — {formatDate(dateTo)})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2">Producto</th>
-                    <th className="text-right py-2">Cant.</th>
-                    <th className="text-right py-2">Ingresos</th>
+                    <th className="text-left py-2">{t("common.product")}</th>
+                    <th className="text-right py-2">{t("common.quantity")}</th>
+                    <th className="text-right py-2">{t("reports.revenue")}</th>
                     <Can permission="reports:financial">
-                      <th className="text-right py-2">Utilidad</th>
+                      <th className="text-right py-2">{t("reports.profit")}</th>
                     </Can>
                   </tr>
                 </thead>
